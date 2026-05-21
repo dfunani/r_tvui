@@ -1,6 +1,6 @@
-# rTVUI
+# R-TVUI
 
-**rTVUI** is a planned **terminal-based file explorer** written in **Rust**: fast keyboard-driven navigation, rich previews, and a composable architecture—taking inspiration from modern TUI file managers like **[Yazi](https://github.com/sxyazi/yazi)** (async I/O, plugin ecosystem, multi-tab UX) while defining its own defaults and extension model.
+**R-TVUI** is a planned **terminal-based file explorer** written in **Rust**: fast keyboard-driven navigation, rich previews, and a composable architecture—taking inspiration from modern TUI file managers like **[Yazi](https://github.com/sxyazi/yazi)** (async I/O, plugin ecosystem, multi-tab UX) while defining its own defaults and extension model.
 
 This repository is in the **design and planning** stage.
 
@@ -24,7 +24,7 @@ This repository is in the **design and planning** stage.
 
 ## Inspiration (Yazi and peers)
 
-| Idea from Yazi | rTVUI direction |
+| Idea from Yazi | R-TVUI direction |
 |----------------|-----------------|
 | Async, non-blocking I/O | Core event loop never blocks on `stat`/`read_dir` storms. |
 | Plugin-heavy UI | Start with **Rust-native plugins** (WASM or dylib TBD); scripting layer later if needed. |

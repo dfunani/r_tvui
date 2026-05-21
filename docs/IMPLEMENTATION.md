@@ -1,10 +1,10 @@
-# rTVUI — Full implementation specification
+# R-TVUI — Full implementation specification
 
 **Version:** 1.0  
 **Status:** Codegen-ready blueprint  
 **Related:** [DESIGN_SPEC.md](./DESIGN_SPEC.md), [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)
 
-This document is the **complete build specification** for rTVUI: every crate, file, type, message, and wiring needed to produce a **working terminal file explorer** through milestone **M3**. It is written for humans and codegen agents—**do not treat this as a plan**; treat it as the contract to implement.
+This document is the **complete build specification** for R-TVUI: every crate, file, type, message, and wiring needed to produce a **working terminal file explorer** through milestone **M3**. It is written for humans and codegen agents—**do not treat this as a plan**; treat it as the contract to implement.
 
 **Out of scope for this document:** actual Rust source bodies, CI secrets, release signing, website.
 
@@ -17,16 +17,16 @@ This document is the **complete build specification** for rTVUI: every crate, fi
 3. [Workspace & dependencies](#3-workspace--dependencies)
 4. [Runtime architecture](#4-runtime-architecture)
 5. [Global types & IDs](#5-global-types--ids)
-6. [Crate: `rtvui_core`](#6-crate-rtvui_core)
-7. [Crate: `rtvui_fs`](#7-crate-rtvui_fs)
-8. [Crate: `rtvui_config`](#8-crate-rtvui_config)
-9. [Crate: `rtvui_terminal`](#9-crate-rtvui_terminal)
-10. [Crate: `rtvui_preview`](#10-crate-rtvui_preview)
-11. [Crate: `rtvui_tasks`](#11-crate-rtvui_tasks)
-12. [Crate: `rtvui_plugin_api`](#12-crate-rtvui_plugin_api)
-13. [Crate: `rtvui_ui`](#13-crate-rtvui_ui)
-14. [Crate: `rtvui_app`](#14-crate-rtvui_app)
-15. [Crate: `rtvui_cli`](#15-crate-rtvui_cli)
+6. [Crate: `r-tvui_core`](#6-crate-r-tvui_core)
+7. [Crate: `r-tvui_fs`](#7-crate-r-tvui_fs)
+8. [Crate: `r-tvui_config`](#8-crate-r-tvui_config)
+9. [Crate: `r-tvui_terminal`](#9-crate-r-tvui_terminal)
+10. [Crate: `r-tvui_preview`](#10-crate-r-tvui_preview)
+11. [Crate: `r-tvui_tasks`](#11-crate-r-tvui_tasks)
+12. [Crate: `r-tvui_plugin_api`](#12-crate-r-tvui_plugin_api)
+13. [Crate: `r-tvui_ui`](#13-crate-r-tvui_ui)
+14. [Crate: `r-tvui_app`](#14-crate-r-tvui_app)
+15. [Crate: `r-tvui_cli`](#15-crate-r-tvui_cli)
 16. [Event loop & state machine](#16-event-loop--state-machine)
 17. [Keymap & action dispatch](#17-keymap--action-dispatch)
 18. [Configuration schema (TOML)](#18-configuration-schema-toml)
@@ -46,7 +46,7 @@ This document is the **complete build specification** for rTVUI: every crate, fi
 
 ## 1. Definition of “working app”
 
-A **working app** means: running `rtvui` from a release or `cargo run -p rtvui_cli` opens a fullscreen TUI, lists the current directory, accepts keyboard input, updates the screen at ~60 Hz (or on event), and exits cleanly restoring the terminal.
+A **working app** means: running `r-tvui` from a release or `cargo run -p r-tvui_cli` opens a fullscreen TUI, lists the current directory, accepts keyboard input, updates the screen at ~60 Hz (or on event), and exits cleanly restoring the terminal.
 
 | Milestone | User-visible capability | Internal requirement |
 |-----------|-------------------------|----------------------|
@@ -54,7 +54,7 @@ A **working app** means: running `rtvui` from a release or `cargo run -p rtvui_c
 | **M1** | Tabs, filter, async list, text preview, config | Tokio + channels; cancellable preview |
 | **M2** | Visual selection, copy/move/delete/rename, progress, trash | Task queue + confirm overlays |
 | **M3** | Split pane, image preview (gated), external tools, git hint | Terminal caps + optional features |
-| **M4** | Load example plugin | `rtvui_plugin_api` + static registry |
+| **M4** | Load example plugin | `r-tvui_plugin_api` + static registry |
 
 **Minimum shippable product (M1)** is the first “daily driver.” **Full spec in this doc targets M3**; M4 is an appendix section.
 
@@ -65,7 +65,7 @@ A **working app** means: running `rtvui` from a release or `cargo run -p rtvui_c
 Create this tree exactly. Files marked `(M0)` … `(M4)` indicate first milestone that needs the file; unmarked files are required for M1+.
 
 ```text
-rTVUI/
+R-TVUI/
 ├── Cargo.toml                          # workspace root
 ├── rust-toolchain.toml                 # pin 1.75+ (or project MSRV)
 ├── CHANGELOG.md
@@ -83,14 +83,14 @@ rTVUI/
 │   ├── IMPLEMENTATION_PLAN.md
 │   └── IMPLEMENTATION.md               # this file
 ├── crates/
-│   ├── rtvui_core/
+│   ├── r-tvui_core/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── ids.rs
 │   │       ├── path_types.rs
 │   │       └── time.rs
-│   ├── rtvui_fs/
+│   ├── r-tvui_fs/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
@@ -100,7 +100,7 @@ rTVUI/
 │   │       ├── canonical.rs
 │   │       ├── metadata.rs
 │   │       └── errors.rs
-│   ├── rtvui_config/
+│   ├── r-tvui_config/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
@@ -109,14 +109,14 @@ rTVUI/
 │   │       ├── paths.rs
 │   │       ├── keymap.rs
 │   │       └── theme.rs
-│   ├── rtvui_terminal/
+│   ├── r-tvui_terminal/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── capabilities.rs
 │   │       ├── backend.rs          # (M0) init/restore terminal
-│   │       └── doctor.rs           # (M2) rtvui doctor output
-│   ├── rtvui_preview/
+│   │       └── doctor.rs           # (M2) r-tvui doctor output
+│   ├── r-tvui_preview/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
@@ -130,7 +130,7 @@ rTVUI/
 │   │           ├── directory.rs
 │   │           ├── binary.rs
 │   │           └── image.rs        # (M3) feature image-preview
-│   ├── rtvui_tasks/
+│   ├── r-tvui_tasks/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
@@ -139,14 +139,14 @@ rTVUI/
 │   │       ├── copy_move.rs
 │   │       ├── delete.rs
 │   │       └── progress.rs
-│   ├── rtvui_plugin_api/
+│   ├── r-tvui_plugin_api/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── version.rs
 │   │       ├── spotter.rs
 │   │       └── previewer.rs
-│   ├── rtvui_ui/
+│   ├── r-tvui_ui/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
@@ -163,7 +163,7 @@ rTVUI/
 │   │           ├── help_overlay.rs
 │   │           ├── confirm_dialog.rs
 │   │           └── task_progress.rs
-│   ├── rtvui_app/
+│   ├── r-tvui_app/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
@@ -177,7 +177,7 @@ rTVUI/
 │   │       ├── dispatch.rs
 │   │       ├── effects.rs          # spawn async work from pure transitions
 │   │       └── reduce.rs           # state transitions (optional split)
-│   └── rtvui_cli/
+│   └── r-tvui_cli/
 │       ├── Cargo.toml
 │       └── src/
 │           ├── main.rs
@@ -206,18 +206,18 @@ rTVUI/
 [workspace]
 resolver = "2"
 members = [
-  "crates/rtvui_core",
-  "crates/rtvui_fs",
-  "crates/rtvui_config",
-  "crates/rtvui_terminal",
-  "crates/rtvui_preview",
-  "crates/rtvui_tasks",
-  "crates/rtvui_plugin_api",
-  "crates/rtvui_ui",
-  "crates/rtvui_app",
-  "crates/rtvui_cli",
+  "crates/r-tvui_core",
+  "crates/r-tvui_fs",
+  "crates/r-tvui_config",
+  "crates/r-tvui_terminal",
+  "crates/r-tvui_preview",
+  "crates/r-tvui_tasks",
+  "crates/r-tvui_plugin_api",
+  "crates/r-tvui_ui",
+  "crates/r-tvui_app",
+  "crates/r-tvui_cli",
 ]
-default-members = ["crates/rtvui_cli"]
+default-members = ["crates/r-tvui_cli"]
 
 [workspace.package]
 version = "0.1.0"
@@ -241,33 +241,33 @@ clap = { version = "4", features = ["derive"] }
 unicode-width = "0.2"
 mime_guess = "2"
 content_inspector = "0.2"   # binary sniff
-trash = "5"                 # optional in rtvui_tasks via feature
+trash = "5"                 # optional in r-tvui_tasks via feature
 directories = "5"           # XDG config paths
 ```
 
 ### 3.2 Per-crate dependency graph
 
 ```text
-rtvui_cli → rtvui_app, rtvui_terminal, rtvui_config, tracing
-rtvui_app → rtvui_core, rtvui_fs, rtvui_config, rtvui_preview, rtvui_tasks, rtvui_ui, rtvui_terminal, tokio
-rtvui_ui → rtvui_core, rtvui_config, ratatui, crossterm, unicode-width
-rtvui_preview → rtvui_core, rtvui_fs, rtvui_plugin_api, rtvui_terminal, tokio
-rtvui_tasks → rtvui_core, rtvui_fs, tokio
-rtvui_fs → rtvui_core, tokio
-rtvui_config → rtvui_core, serde, toml, directories
-rtvui_terminal → rtvui_core, crossterm
-rtvui_plugin_api → rtvui_core (minimal)
-rtvui_core → (std only)
+r-tvui_cli → r-tvui_app, r-tvui_terminal, r-tvui_config, tracing
+r-tvui_app → r-tvui_core, r-tvui_fs, r-tvui_config, r-tvui_preview, r-tvui_tasks, r-tvui_ui, r-tvui_terminal, tokio
+r-tvui_ui → r-tvui_core, r-tvui_config, ratatui, crossterm, unicode-width
+r-tvui_preview → r-tvui_core, r-tvui_fs, r-tvui_plugin_api, r-tvui_terminal, tokio
+r-tvui_tasks → r-tvui_core, r-tvui_fs, tokio
+r-tvui_fs → r-tvui_core, tokio
+r-tvui_config → r-tvui_core, serde, toml, directories
+r-tvui_terminal → r-tvui_core, crossterm
+r-tvui_plugin_api → r-tvui_core (minimal)
+r-tvui_core → (std only)
 ```
 
 ### 3.3 Feature flags (workspace-level)
 
 | Feature | Crate | Enables |
 |---------|-------|---------|
-| `trash` | `rtvui_tasks` | Delete-to-trash via `trash` crate |
-| `image-preview` | `rtvui_preview`, `rtvui_cli` | Kitty/iTerm2 image protocols |
-| `git-status` | `rtvui_app` | Git column + dirty badge |
-| `external-tools` | `rtvui_preview`, `rtvui_app` | Spawn bat/chafa/rg/fd from config |
+| `trash` | `r-tvui_tasks` | Delete-to-trash via `trash` crate |
+| `image-preview` | `r-tvui_preview`, `r-tvui_cli` | Kitty/iTerm2 image protocols |
+| `git-status` | `r-tvui_app` | Git column + dirty badge |
+| `external-tools` | `r-tvui_preview`, `r-tvui_app` | Spawn bat/chafa/rg/fd from config |
 
 Default features for release binary: `["trash", "git-status", "external-tools"]`. Image preview off by default until tested.
 
@@ -281,7 +281,7 @@ Single process, single thread for TUI draw + input poll, **Tokio multi-thread ru
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ main (rtvui_cli)                                            │
+│ main (r-tvui_cli)                                            │
 │   TerminalBackend::install()                                │
 │   Config::load()                                            │
 │   App::new(config, caps)                                    │
@@ -290,7 +290,7 @@ Single process, single thread for TUI draw + input poll, **Tokio multi-thread ru
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ run_app loop (rtvui_app)                                    │
+│ run_app loop (r-tvui_app)                                    │
 │   loop {                                                    │
 │     tokio::select! {                                        │
 │       biased;                                               │
@@ -310,19 +310,19 @@ Single process, single thread for TUI draw + input poll, **Tokio multi-thread ru
 
 | Layer | Owns | Must not |
 |-------|------|----------|
-| `rtvui_cli` | argv, logging init, runtime bootstrap | Business logic |
-| `rtvui_app` | `AppState`, dispatch, effects | ratatui widgets |
-| `rtvui_ui` | Layout + pure render from `ViewState` | Filesystem I/O |
-| `rtvui_fs` | async listing, cache, canonicalize | UI |
-| `rtvui_preview` | spot + preview jobs | Tab management |
-| `rtvui_tasks` | copy/move/delete jobs | Keymap |
-| `rtvui_config` | parse TOML, resolve keymap | Runtime loop |
+| `r-tvui_cli` | argv, logging init, runtime bootstrap | Business logic |
+| `r-tvui_app` | `AppState`, dispatch, effects | ratatui widgets |
+| `r-tvui_ui` | Layout + pure render from `ViewState` | Filesystem I/O |
+| `r-tvui_fs` | async listing, cache, canonicalize | UI |
+| `r-tvui_preview` | spot + preview jobs | Tab management |
+| `r-tvui_tasks` | copy/move/delete jobs | Keymap |
+| `r-tvui_config` | parse TOML, resolve keymap | Runtime loop |
 
 ---
 
 ## 5. Global types & IDs
 
-Defined in `rtvui_core` — **every crate imports these**; do not duplicate ID newtypes elsewhere.
+Defined in `r-tvui_core` — **every crate imports these**; do not duplicate ID newtypes elsewhere.
 
 ### 5.1 `ids.rs`
 
@@ -377,7 +377,7 @@ pub fn format_size(bytes: u64) -> String;       // "4.2K", "1.1M"
 
 ---
 
-## 6. Crate: `rtvui_core`
+## 6. Crate: `r-tvui_core`
 
 **Purpose:** Shared types with zero heavy dependencies.
 
@@ -387,11 +387,11 @@ pub fn format_size(bytes: u64) -> String;       // "4.2K", "1.1M"
 - `path_types::*`
 - `time::*`
 
-No async, no serde (keep serde on config structs in `rtvui_config`).
+No async, no serde (keep serde on config structs in `r-tvui_config`).
 
 ---
 
-## 7. Crate: `rtvui_fs`
+## 7. Crate: `r-tvui_fs`
 
 **Purpose:** All filesystem access and directory cache.
 
@@ -508,7 +508,7 @@ Export: `list_dir`, `DirCache`, `canonicalize`, `FsError`, `ListOptions`, `SortO
 
 ---
 
-## 8. Crate: `rtvui_config`
+## 8. Crate: `r-tvui_config`
 
 **Purpose:** Load, validate, merge configuration; resolve keymaps to actions.
 
@@ -559,7 +559,7 @@ pub struct SecurityConfig {
 }
 ```
 
-`SortOrder` deserializes from `"name" | "size" | "modified"` — map to `rtvui_fs::SortOrder`.
+`SortOrder` deserializes from `"name" | "size" | "modified"` — map to `r-tvui_fs::SortOrder`.
 
 ### 8.2 `keymap.rs`
 
@@ -641,7 +641,7 @@ pub struct ResolvedTheme {
 ### 8.4 `paths.rs`
 
 ```rust
-pub fn config_dir() -> PathBuf;      // ~/.config/rtvui or XDG
+pub fn config_dir() -> PathBuf;      // ~/.config/r-tvui or XDG
 pub fn config_file() -> PathBuf;     // config_dir()/config.toml
 pub fn state_file() -> PathBuf;      // last tabs, cwd paths
 pub fn ensure_config_exists() -> Result<PathBuf, ConfigError>; // copy from assets/default_config.toml
@@ -662,7 +662,7 @@ Reject `config_version` > supported with clear error.
 
 ---
 
-## 9. Crate: `rtvui_terminal`
+## 9. Crate: `r-tvui_terminal`
 
 **Purpose:** Terminal lifecycle and capability detection.
 
@@ -709,12 +709,12 @@ Detection order: env vars (`TERM`, `KITTY_WINDOW_ID`, `ITERM_SESSION`), then con
 
 ```rust
 pub fn run_doctor(caps: &TermCapabilities, config: &Config) -> String;
-// Multi-line report for `rtvui doctor` subcommand
+// Multi-line report for `r-tvui doctor` subcommand
 ```
 
 ---
 
-## 10. Crate: `rtvui_preview`
+## 10. Crate: `r-tvui_preview`
 
 **Purpose:** Spot + preview pipeline with cancellation.
 
@@ -812,11 +812,11 @@ impl PreviewPipeline {
 | `binary.rs` | Binary | 16 lines hex + message |
 | `image.rs` | Image | Encode for kitty/iterm2 or error fallback |
 
-Each implements `Previewer` from `rtvui_plugin_api`.
+Each implements `Previewer` from `r-tvui_plugin_api`.
 
 ---
 
-## 11. Crate: `rtvui_tasks`
+## 11. Crate: `r-tvui_tasks`
 
 **Purpose:** Background file jobs with progress.
 
@@ -888,7 +888,7 @@ impl TaskQueue {
 
 ---
 
-## 12. Crate: `rtvui_plugin_api`
+## 12. Crate: `r-tvui_plugin_api`
 
 **Purpose:** Stable trait surface for preview extensions (M4).
 
@@ -928,11 +928,11 @@ pub struct PreviewContext<'a> {
 
 ---
 
-## 13. Crate: `rtvui_ui`
+## 13. Crate: `r-tvui_ui`
 
 **Purpose:** Pure rendering. **Input:** `ViewState`. **Output:** ratatui `Frame`.
 
-### 13.1 `ViewState` (defined in `rtvui_app`, rendered by `rtvui_ui`)
+### 13.1 `ViewState` (defined in `r-tvui_app`, rendered by `r-tvui_ui`)
 
 ```rust
 pub struct ViewState {
@@ -987,7 +987,7 @@ pub enum OverlayView {
 
 pub struct PreviewPaneView {
     pub title: String,
-    pub content: PreviewContent,  // from rtvui_preview
+    pub content: PreviewContent,  // from r-tvui_preview
 }
 
 pub struct StatusBarView {
@@ -1038,7 +1038,7 @@ pub fn render(frame: &mut Frame, state: &ViewState);
 
 ---
 
-## 14. Crate: `rtvui_app`
+## 14. Crate: `r-tvui_app`
 
 **Purpose:** Application state machine, dispatch, effect spawning.
 
@@ -1204,7 +1204,7 @@ Pure functions: `fn reduce(state: &App, event: AppEvent) -> (App, Vec<Effect>)` 
 
 ---
 
-## 15. Crate: `rtvui_cli`
+## 15. Crate: `r-tvui_cli`
 
 **Purpose:** Binary entrypoint.
 
@@ -1212,7 +1212,7 @@ Pure functions: `fn reduce(state: &App, event: AppEvent) -> (App, Vec<Effect>)` 
 
 ```rust
 #[derive(Parser)]
-#[command(name = "rtvui", version, about)]
+#[command(name = "r-tvui", version, about)]
 pub struct Cli {
     #[arg(long)]
     pub config: Option<PathBuf>,
@@ -1372,7 +1372,7 @@ Load on startup if `general.restore_tabs = true`; save on quit.
 
 ## 19. Built-in themes
 
-Define in `rtvui_ui/src/theme.rs` as `ThemePalette`:
+Define in `r-tvui_ui/src/theme.rs` as `ThemePalette`:
 
 | Token | dark | light | high-contrast |
 |-------|------|-------|---------------|
@@ -1498,9 +1498,9 @@ r → Rename mode with buffer prefilled = entry.name
 
 | Layer | Type | User visibility |
 |-------|------|-----------------|
-| `rtvui_fs` | `FsError` | Row or status message |
-| `rtvui_config` | `ConfigError` | stderr + exit code 1 at startup |
-| `rtvui_app` | never panic on bad dir | empty list + error row |
+| `r-tvui_fs` | `FsError` | Row or status message |
+| `r-tvui_config` | `ConfigError` | stderr + exit code 1 at startup |
+| `r-tvui_app` | never panic on bad dir | empty list + error row |
 | Workers | log with `tracing::error` | status bar |
 
 **Never panic** on: empty directory, permission denied, broken symlink (show symlink row, failed metadata as error row).
@@ -1513,14 +1513,14 @@ r → Rename mode with buffer prefilled = entry.name
 
 | Crate | Test | Assert |
 |-------|------|--------|
-| `rtvui_config` | parse default TOML | `config_version == 1` |
-| `rtvui_config` | invalid chord | `ConfigError` |
-| `rtvui_fs` | `list_dir` tempdir | correct count, sort |
-| `rtvui_fs` | `DirCache` invalidate | miss after invalidate |
-| `rtvui_fs` | hidden files | filtered when off |
-| `rtvui_app` | `dispatch` MoveDown | cursor 1, generation unchanged |
-| `rtvui_preview` | spot text file | `SpotHint::Text` |
-| `rtvui_tasks` | copy progress | bytes_done increases |
+| `r-tvui_config` | parse default TOML | `config_version == 1` |
+| `r-tvui_config` | invalid chord | `ConfigError` |
+| `r-tvui_fs` | `list_dir` tempdir | correct count, sort |
+| `r-tvui_fs` | `DirCache` invalidate | miss after invalidate |
+| `r-tvui_fs` | hidden files | filtered when off |
+| `r-tvui_app` | `dispatch` MoveDown | cursor 1, generation unchanged |
+| `r-tvui_preview` | spot text file | `SpotHint::Text` |
+| `r-tvui_tasks` | copy progress | bytes_done increases |
 
 ### 25.2 Integration tests (`tests/integration/`)
 
@@ -1534,7 +1534,7 @@ r → Rename mode with buffer prefilled = entry.name
 - [ ] Navigate 10k+ dir remains responsive.
 - [ ] Rapid j/k does not show wrong preview (token).
 - [ ] Delete confirm works; trash when enabled.
-- [ ] `rtvui doctor` prints caps.
+- [ ] `r-tvui doctor` prints caps.
 
 ---
 
@@ -1581,27 +1581,27 @@ components = ["rustfmt", "clippy"]
 Implement crates in this order to minimize compile-fix cycles:
 
 ```text
-1. rtvui_core
-2. rtvui_terminal/backend (M0 smoke)
-3. rtvui_fs (sync list first, then async)
-4. rtvui_config
-5. rtvui_ui (static ViewState mock render)
-6. rtvui_app (dispatch without preview/tasks)
-7. rtvui_cli → M0 DONE
-8. rtvui_preview + wire preview channel → M1
+1. r-tvui_core
+2. r-tvui_terminal/backend (M0 smoke)
+3. r-tvui_fs (sync list first, then async)
+4. r-tvui_config
+5. r-tvui_ui (static ViewState mock render)
+6. r-tvui_app (dispatch without preview/tasks)
+7. r-tvui_cli → M0 DONE
+8. r-tvui_preview + wire preview channel → M1
 9. tabs, filter, state.toml → M1 DONE
-10. rtvui_tasks + visual selection → M2 DONE
+10. r-tvui_tasks + visual selection → M2 DONE
 11. split, image, git, external tools → M3 DONE
-12. rtvui_plugin_api + example plugin → M4
+12. r-tvui_plugin_api + example plugin → M4
 ```
 
 ### 28.1 Suggested codegen prompts (per step)
 
 When using an agent, one prompt per file group:
 
-1. “Create workspace and `rtvui_core` per IMPLEMENTATION.md §5-6.”
-2. “Implement `rtvui_terminal/backend.rs` + M0 loop in `rtvui_cli` listing sync dir.”
-3. “Replace sync listing with `rtvui_fs::list_dir` + cache + `FsEvent` wiring.”
+1. “Create workspace and `r-tvui_core` per IMPLEMENTATION.md §5-6.”
+2. “Implement `r-tvui_terminal/backend.rs` + M0 loop in `r-tvui_cli` listing sync dir.”
+3. “Replace sync listing with `r-tvui_fs::list_dir` + cache + `FsEvent` wiring.”
 … continue following §28 order.
 
 ---
@@ -1610,7 +1610,7 @@ When using an agent, one prompt per file group:
 
 | ID | Criterion | Verified by |
 |----|-----------|-------------|
-| M0-1 | `rtvui` starts fullscreen | manual |
+| M0-1 | `r-tvui` starts fullscreen | manual |
 | M0-2 | j/k/h/l/q work | manual |
 | M0-3 | panic hook restores terminal | test hook / manual |
 | M1-1 | 2+ tabs, Tab cycles | manual |
@@ -1622,7 +1622,7 @@ When using an agent, one prompt per file group:
 | M2-3 | delete confirm + trash | manual |
 | M3-1 | split pane two cwd | manual |
 | M3-2 | image feature shows fallback on unsupported term | manual |
-| M3-3 | `rtvui doctor` output | manual |
+| M3-3 | `r-tvui doctor` output | manual |
 
 ---
 
@@ -1630,7 +1630,7 @@ When using an agent, one prompt per file group:
 
 1. `PreviewerRegistry::register(Box<dyn Previewer>)`.
 2. Static plugins: `inventory` crate or `const` slice of factory fns.
-3. Dynamic: `libloading` behind feature `plugins-dylib` — load from `~/.config/rtvui/plugins/*.so`.
+3. Dynamic: `libloading` behind feature `plugins-dylib` — load from `~/.config/r-tvui/plugins/*.so`.
 4. Example `markdown_preview` crate links trait only.
 
 ---

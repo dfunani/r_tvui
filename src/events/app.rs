@@ -1,5 +1,5 @@
 use ratatui::crossterm::event;
-use ratatui::{DefaultTerminal, Frame};
+use ratatui::DefaultTerminal;
 
 use crate::models::app::App;
 use crate::models::app::AppState;

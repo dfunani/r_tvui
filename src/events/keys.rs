@@ -1,46 +1,41 @@
-use ratatui::crossterm::event::Event;
-use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::{Event, KeyCode, KeyEventKind};
 
-use crate::models::app::App;
-use crate::models::app::AppState;
-use crate::utils::counter::decrement;
-use crate::utils::counter::increment;
+use crate::models::app::{App, AppState};
+use crate::utils::navigation::{
+    enter_selected, go_home, go_parent, move_selection, refresh_listing, toggle_hidden,
+};
 
 impl App {
     pub fn handle_key_event(&mut self, key_event: Event) {
-        match key_event {
-            Event::Key(key_event) if get_increment_keys().contains(&key_event.code) => {
-                increment(&mut self.counter, 1)
+        let Event::Key(key) = key_event else {
+            return;
+        };
+        if key.kind == KeyEventKind::Release {
+            return;
+        }
+
+        match key.code {
+            KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
+                self.state = AppState::Exit;
             }
-            Event::Key(key_event) if get_decrement_keys().contains(&key_event.code) => {
-                decrement(&mut self.counter, 1)
+            KeyCode::Up | KeyCode::Char('k') => move_selection(self, -1),
+            KeyCode::Down | KeyCode::Char('j') => move_selection(self, 1),
+            KeyCode::Home => {
+                self.selected = 0;
+                crate::utils::previewer::refresh_preview(self);
             }
-            Event::Key(key_event) if get_exit_keys().contains(&key_event.code) => {
-                self.state = AppState::Exit
+            KeyCode::End => {
+                if !self.entries.is_empty() {
+                    self.selected = self.entries.len() - 1;
+                    crate::utils::previewer::refresh_preview(self);
+                }
             }
+            KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => enter_selected(self),
+            KeyCode::Left | KeyCode::Char('h') => go_parent(self),
+            KeyCode::Char('G') => go_home(self),
+            KeyCode::Char('r') => refresh_listing(self),
+            KeyCode::Char('.') => toggle_hidden(self),
             _ => (),
         }
     }
-}
-
-fn get_exit_keys() -> Vec<KeyCode> {
-    vec![KeyCode::Char('Q'), KeyCode::Esc]
-}
-
-fn get_increment_keys() -> Vec<KeyCode> {
-    vec![
-        KeyCode::Up,
-        KeyCode::Char('+'),
-        KeyCode::Char('='),
-        KeyCode::Right,
-    ]
-}
-
-fn get_decrement_keys() -> Vec<KeyCode> {
-    vec![
-        KeyCode::Down,
-        KeyCode::Char('-'),
-        KeyCode::Char('_'),
-        KeyCode::Left,
-    ]
 }

@@ -1,4 +1,4 @@
-# rTVUI — Implementation plan
+# R-TVUI — Implementation plan
 
 **Version:** 0.1 (planning)  
 **Related:** [Design specification](./DESIGN_SPEC.md)
@@ -7,7 +7,7 @@
 
 | Milestone | Scope | Exit criteria |
 |-----------|--------|----------------|
-| **M0 — Spike** | TUI frame + read one directory | `rtvui` opens, lists cwd, quits cleanly |
+| **M0 — Spike** | TUI frame + read one directory | `r-tvui` opens, lists cwd, quits cleanly |
 | **M1 — MVP** | Navigate, tabs, text preview, config | Daily-usable local browser |
 | **M2 — v1** | Visual mode, bulk ops, trash, themes | Copy/move/delete with progress |
 | **M3 — v1+** | Image preview, splits, tool spawn | Matches “power user” expectations |
@@ -20,7 +20,7 @@
 | Language | Rust (edition 2021+) | Performance, safety, single binary |
 | TUI | [ratatui](https://github.com/ratatui/ratatui) + crossterm | Ecosystem standard; Yazi-adjacent patterns |
 | Async | tokio | Background I/O, cancellation |
-| CLI | clap | Subcommands: `rtvui`, `rtvui --version`, `rtvui doctor` |
+| CLI | clap | Subcommands: `r-tvui`, `r-tvui --version`, `r-tvui doctor` |
 | Config | toml + serde | Human-editable keymaps |
 | Errors | anyhow (app) / thiserror (libs) | Practical diagnostics |
 | Trash | `trash` crate (optional feature) | Cross-platform delete-to-trash |
@@ -30,18 +30,18 @@
 ## 2. Crate layout (proposed)
 
 ```
-rTVUI/
+R-TVUI/
   Cargo.toml                 # workspace
   crates/
-    rtvui_cli/               # entrypoint, clap, logging
-    rtvui_app/               # app state machine, key dispatch
-    rtvui_ui/                # ratatui widgets: browser, preview, status, tabs
-    rtvui_fs/                # async read_dir, metadata, canonical paths
-    rtvui_tasks/             # copy/move progress, cancel
-    rtvui_preview/           # preview pipeline + built-in previewers
-    rtvui_config/            # load/merge TOML, keymap resolution
-    rtvui_terminal/          # capability detection, color depth
-    rtvui_plugin_api/        # traits + versioning (M4)
+    r-tvui_cli/               # entrypoint, clap, logging
+    r-tvui_app/               # app state machine, key dispatch
+    r-tvui_ui/                # ratatui widgets: browser, preview, status, tabs
+    r-tvui_fs/                # async read_dir, metadata, canonical paths
+    r-tvui_tasks/             # copy/move progress, cancel
+    r-tvui_preview/           # preview pipeline + built-in previewers
+    r-tvui_config/            # load/merge TOML, keymap resolution
+    r-tvui_terminal/          # capability detection, color depth
+    r-tvui_plugin_api/        # traits + versioning (M4)
   tests/
     integration/
   examples/
@@ -53,7 +53,7 @@ rTVUI/
 
 **Tasks**
 
-1. `cargo new` workspace; binary `rtvui`.
+1. `cargo new` workspace; binary `r-tvui`.
 2. Raw mode + alternate screen; restore on panic (`color-eyre` or custom hook).
 3. Render static layout: path bar + file list from sync `read_dir` (temporary).
 4. `j`/`k` selection, `q` quit, `l` enter dir, `h` parent.
@@ -64,7 +64,7 @@ rTVUI/
 
 **Tasks**
 
-1. **Async listing**: `rtvui_fs::list_dir(path)` → channel → UI updates listing widget.
+1. **Async listing**: `r-tvui_fs::list_dir(path)` → channel → UI updates listing widget.
 2. **Tabs**: state vec; `Tab` to cycle; close tab; persist last paths in config optional.
 3. **Filter**: `/` opens input line; substring filter on cached names.
 4. **Text preview**: read first 64 KiB async; show in right pane.
@@ -82,7 +82,7 @@ rTVUI/
 3. Copy/move with `tokio::fs` + progress aggregation.
 4. Delete with confirm; `trash` feature flag.
 5. Rename overlay + validation.
-6. Second built-in theme; `rtvui doctor` prints terminal capabilities.
+6. Second built-in theme; `r-tvui doctor` prints terminal capabilities.
 
 ### 3.4 M3 — Power features
 
@@ -97,13 +97,13 @@ rTVUI/
 
 **Tasks**
 
-1. Define `Previewer` / `Spotter` traits in `rtvui_plugin_api`.
+1. Define `Previewer` / `Spotter` traits in `r-tvui_plugin_api`.
 2. Dynamic loading: start with **static registration** macro list; then `dlopen` or WASM (spike both).
 3. Example plugin crate in `examples/plugins/markdown_preview`.
 
 ## 4. Yazi comparison (intentional gaps early)
 
-| Yazi feature | rTVUI MVP | Notes |
+| Yazi feature | R-TVUI MVP | Notes |
 |--------------|-----------|--------|
 | Lua plugins | No | Rust plugins later; avoid dual language in M1 |
 | DDS pub-sub | No | Revisit if multi-instance needed |
@@ -116,8 +116,8 @@ rTVUI/
 
 | Layer | Approach |
 |-------|----------|
-| `rtvui_fs` | Unit tests with tempdir fixtures |
-| `rtvui_config` | Parse golden TOML files |
+| `r-tvui_fs` | Unit tests with tempdir fixtures |
+| `r-tvui_config` | Parse golden TOML files |
 | UI | Limited: extract state transitions tests without full terminal |
 | Integration | `expect` script or `vt100` crate for buffered terminal snapshots (optional) |
 
@@ -130,7 +130,7 @@ rTVUI/
 ## 7. Release engineering
 
 - GitHub Releases: static binaries per target triple.
-- Man page / `rtvui --help` as primary docs until website exists.
+- Man page / `r-tvui --help` as primary docs until website exists.
 - `CHANGELOG.md` (Keep a Changelog) from first public tag.
 
 ## 8. Immediate next actions (when coding starts)

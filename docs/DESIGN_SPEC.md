@@ -1,4 +1,4 @@
-# rTVUI — Design specification
+# R-TVUI — Design specification
 
 **Version:** 0.1 (planning)  
 **Status:** Draft
@@ -7,7 +7,7 @@
 
 Power users live in the terminal but default to `ls`, `cd`, and ad-hoc scripts. A **dedicated TUI file explorer** reduces friction: preview before open, batch operations with visual selection, bookmarks, and integrations with search tools—without leaving the shell.
 
-**rTVUI** targets that workflow in **Rust**, with **Yazi-class** responsiveness and extensibility as the north star.
+**R-TVUI** targets that workflow in **Rust**, with **Yazi-class** responsiveness and extensibility as the north star.
 
 ## 2. Product principles
 
@@ -129,7 +129,7 @@ Terminal (stdin/stdout) ↔ TUI backend (ratatui + crossterm)
 
 ## 7. Configuration
 
-- **File**: `~/.config/rtvui/config.toml` (XDG on Linux; platform dirs elsewhere).
+- **File**: `~/.config/r-tvui/config.toml` (XDG on Linux; platform dirs elsewhere).
 - **Sections**: `general`, `keymap`, `theme`, `preview`, `tools` (paths to `rg`, `fd`, `fzf`).
 - **Theme**: ratatui style tokens (fg/bg/modifiers); ship 2–3 built-in themes.
 
