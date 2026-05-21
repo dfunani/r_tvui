@@ -5,9 +5,8 @@ use std::fs::File as FsFile;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-use crate::models::app::App;
-
 const PREVIEW_MAX_BYTES: usize = 64 * 1024;
+const SNIFF_BYTES: usize = 8192;
 
 pub struct JSONPreviewer {
     data: String,
@@ -36,21 +35,22 @@ pub fn read_json_file(path: &Path) -> std::io::Result<String> {
     Ok(data)
 }
 
-pub fn refresh_preview(app: &mut App) {
-    let Some(entry) = app.selected_entry() else {
-        app.preview = "No selection".to_string();
-        return;
-    };
-
-    if entry.is_parent_link {
-        app.preview = format!(
-            "Parent directory\n\n{}",
-            entry.path.0.display()
-        );
-        return;
+pub fn is_terminal_previewable(path: &Path) -> bool {
+    if path.is_dir() {
+        return true;
     }
 
-    app.preview = preview_path(&entry.path.0, entry.kind);
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if is_text_extension(&ext) {
+        return true;
+    }
+
+    looks_like_text(path)
 }
 
 pub fn preview_path(path: &Path, kind: FileType) -> String {
@@ -114,7 +114,7 @@ fn preview_file(path: &Path) -> String {
         };
     }
 
-    if is_probably_text(&ext) {
+    if is_text_extension(&ext) || looks_like_text(path) {
         return match read_text_prefix(path) {
             Ok(text) => text,
             Err(err) => format!("Text preview failed:\n{err}"),
@@ -122,12 +122,12 @@ fn preview_file(path: &Path) -> String {
     }
 
     format!(
-        "Binary or unsupported file\n\n{}\nSize: {size_line}",
+        "Not previewable in terminal\n\n{}\nSize: {size_line}",
         path.display()
     )
 }
 
-fn is_probably_text(ext: &str) -> bool {
+fn is_text_extension(ext: &str) -> bool {
     matches!(
         ext,
         "txt" | "md"
@@ -138,9 +138,12 @@ fn is_probably_text(ext: &str) -> bool {
             | "yml"
             | "xml"
             | "html"
+            | "htm"
             | "css"
             | "js"
             | "ts"
+            | "tsx"
+            | "jsx"
             | "py"
             | "sh"
             | "zsh"
@@ -148,8 +151,37 @@ fn is_probably_text(ext: &str) -> bool {
             | "log"
             | "cfg"
             | "ini"
+            | "env"
+            | "csv"
+            | "sql"
+            | "c"
+            | "h"
+            | "cpp"
+            | "go"
+            | "java"
+            | "kt"
+            | "swift"
+            | "rb"
+            | "php"
+            | "vue"
+            | "svelte"
             | ""
     )
+}
+
+fn looks_like_text(path: &Path) -> bool {
+    let Ok(mut file) = FsFile::open(path) else {
+        return false;
+    };
+    let mut buffer = vec![0u8; SNIFF_BYTES];
+    let Ok(read) = file.read(&mut buffer) else {
+        return false;
+    };
+    if read == 0 {
+        return true;
+    }
+    buffer.truncate(read);
+    !buffer.contains(&0) && std::str::from_utf8(&buffer).is_ok()
 }
 
 fn read_text_prefix(path: &Path) -> std::io::Result<String> {
@@ -166,18 +198,11 @@ fn read_text_prefix(path: &Path) -> std::io::Result<String> {
 }
 
 pub fn entry_label(entry: &File) -> String {
-    let icon = match entry.kind {
-        FileType::Directory if entry.is_parent_link => "⬆",
-        FileType::Directory => "📁",
-        FileType::Symlink => "🔗",
-        FileType::File => "📄",
-        FileType::Other => "•",
-    };
     let size = entry
         .size
         .map(format_size)
-        .unwrap_or_else(|| "-".to_string());
-    format!("{icon} {:<24} {size:>8}", entry.name)
+        .unwrap_or_else(|| "—".to_string());
+    format!("{:<28} {size:>10}", entry.name)
 }
 
 pub fn cwd_display(path: &Path) -> String {

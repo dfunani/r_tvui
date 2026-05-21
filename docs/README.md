@@ -2,10 +2,11 @@
 
 **R-TVUI** is a planned **terminal-based file explorer** written in **Rust**: fast keyboard-driven navigation, rich previews, and a composable architecture—taking inspiration from modern TUI file managers like **[Yazi](https://github.com/sxyazi/yazi)** (async I/O, plugin ecosystem, multi-tab UX) while defining its own defaults and extension model.
 
-This repository is in the **design and planning** stage.
+A working terminal file explorer prototype is in `src/`; see [Distribution](./DISTRIBUTION.md) to build and ship binaries.
 
 ## Documentation
 
+- [Distribution & installation](./DISTRIBUTION.md) — build release binaries, GitHub Releases, install on macOS/Linux/Windows.
 - [Design specification](./DESIGN_SPEC.md) — UX, architecture, preview pipeline, plugins, compatibility targets.
 - [Implementation plan](./IMPLEMENTATION_PLAN.md) — milestones, crate layout, testing, release strategy.
 

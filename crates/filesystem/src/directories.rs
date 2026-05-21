@@ -11,6 +11,7 @@ const MAX_ENTRIES: usize = 50_000;
 pub struct DirectoryListOptions {
     pub show_hidden: bool,
     pub sort: DirectorySortOrder,
+    pub include_parent_link: bool,
 }
 
 impl Default for DirectoryListOptions {
@@ -18,6 +19,7 @@ impl Default for DirectoryListOptions {
         Self {
             show_hidden: false,
             sort: DirectorySortOrder::Name,
+            include_parent_link: true,
         }
     }
 }
@@ -106,7 +108,9 @@ pub fn list_directories(
     }
 
     sort_entries(&mut entries, opts.sort);
-    prepend_parent_link(&path, &mut entries);
+    if opts.include_parent_link {
+        prepend_parent_link(&path, &mut entries);
+    }
 
     Ok(DirectoryListResult {
         path,

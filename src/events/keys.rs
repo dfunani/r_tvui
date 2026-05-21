@@ -1,8 +1,10 @@
 use ratatui::crossterm::event::{Event, KeyCode, KeyEventKind};
 
 use crate::models::app::{App, AppState};
+use crate::utils::browser::update_side_pane;
 use crate::utils::navigation::{
-    enter_selected, go_home, go_parent, move_selection, refresh_listing, toggle_hidden,
+    activate_selected, go_home, go_parent, move_selection, navigate_into_selected,
+    refresh_listing, toggle_hidden,
 };
 
 impl App {
@@ -21,20 +23,24 @@ impl App {
             KeyCode::Up | KeyCode::Char('k') => move_selection(self, -1),
             KeyCode::Down | KeyCode::Char('j') => move_selection(self, 1),
             KeyCode::Home => {
-                self.selected = 0;
-                crate::utils::previewer::refresh_preview(self);
+                if !self.entries.is_empty() {
+                    self.selected = 0;
+                    update_side_pane(self);
+                }
             }
             KeyCode::End => {
                 if !self.entries.is_empty() {
                     self.selected = self.entries.len() - 1;
-                    crate::utils::previewer::refresh_preview(self);
+                    update_side_pane(self);
                 }
             }
-            KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => enter_selected(self),
+            KeyCode::Enter => activate_selected(self),
+            KeyCode::Right | KeyCode::Char('l') => navigate_into_selected(self),
             KeyCode::Left | KeyCode::Char('h') => go_parent(self),
             KeyCode::Char('G') => go_home(self),
             KeyCode::Char('r') => refresh_listing(self),
             KeyCode::Char('.') => toggle_hidden(self),
+            KeyCode::Char('t') | KeyCode::Char('T') => self.cycle_theme(),
             _ => (),
         }
     }

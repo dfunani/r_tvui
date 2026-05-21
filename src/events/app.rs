@@ -13,6 +13,7 @@ impl App {
             let key_event = event::read()?;
             self.handle_key_event(key_event);
         }
+        self.persist_config();
         Ok(())
     }
 }

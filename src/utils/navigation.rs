@@ -3,13 +3,15 @@ use filesystem::{
     list_directories, parent, DirectoryListOptions, DirectorySortOrder, FileSystemError,
 };
 
-use crate::models::app::App;
-use crate::utils::previewer;
+use crate::models::app::{App, SidePane};
+use crate::utils::browser::update_side_pane;
+use crate::utils::opener;
 
 pub fn refresh_listing(app: &mut App) {
     let opts = DirectoryListOptions {
         show_hidden: app.show_hidden,
         sort: DirectorySortOrder::Name,
+        include_parent_link: true,
     };
 
     match list_directories(app.cwd.clone(), opts) {
@@ -20,16 +22,22 @@ pub fn refresh_listing(app: &mut App) {
                 app.selected = app.entries.len().saturating_sub(1);
             }
             app.status = build_status(app, &result.error_rows);
-            previewer::refresh_preview(app);
+            update_side_pane(app);
         }
         Err(FileSystemError::Io(err)) => {
             app.entries.clear();
-            app.preview = format!("Failed to read directory:\n{err}");
+            app.side_pane = SidePane::Preview {
+                title: "Error".to_string(),
+                body: format!("Failed to read directory:\n{err}"),
+            };
             app.status = format!("Error: {err}");
         }
         Err(err) => {
             app.entries.clear();
-            app.preview = format!("{err:?}");
+            app.side_pane = SidePane::Preview {
+                title: "Error".to_string(),
+                body: format!("{err:?}"),
+            };
             app.status = format!("Error: {err:?}");
         }
     }
@@ -42,10 +50,10 @@ pub fn move_selection(app: &mut App, delta: isize) {
     let len = app.entries.len() as isize;
     let next = (app.selected as isize + delta).rem_euclid(len);
     app.selected = next as usize;
-    previewer::refresh_preview(app);
+    update_side_pane(app);
 }
 
-pub fn enter_selected(app: &mut App) {
+pub fn navigate_into_selected(app: &mut App) {
     let Some(entry) = app.selected_entry().cloned() else {
         return;
     };
@@ -64,23 +72,84 @@ pub fn enter_selected(app: &mut App) {
         FileType::Symlink => {
             let resolved = std::fs::canonicalize(&entry.path.0);
             match resolved {
-                Ok(path) => {
-                    if path.is_dir() {
-                        app.cwd = filesystem::absolute(&path);
-                        app.selected = 0;
-                        refresh_listing(app);
-                    } else {
-                        app.preview = previewer::preview_path(&path, FileType::File);
-                        app.status = format!("Symlink → {}", path.display());
-                    }
+                Ok(path) if path.is_dir() => {
+                    app.cwd = filesystem::absolute(&path);
+                    app.selected = 0;
+                    refresh_listing(app);
                 }
+                Ok(_) => update_side_pane(app),
                 Err(err) => {
-                    app.preview = format!("Broken symlink:\n{err}");
+                    app.side_pane = SidePane::Preview {
+                        title: entry.name,
+                        body: format!("Broken symlink:\n{err}"),
+                    };
                 }
             }
         }
-        _ => {
-            previewer::refresh_preview(app);
+        _ => update_side_pane(app),
+    }
+}
+
+pub fn activate_selected(app: &mut App) {
+    let Some(entry) = app.selected_entry().cloned() else {
+        return;
+    };
+
+    if entry.is_parent_link {
+        go_parent(app);
+        return;
+    }
+
+    match entry.kind {
+        FileType::Directory => {
+            app.cwd = entry.path;
+            app.selected = 0;
+            refresh_listing(app);
+        }
+        FileType::Symlink => {
+            let resolved = std::fs::canonicalize(&entry.path.0);
+            match resolved {
+                Ok(path) if path.is_dir() => {
+                    app.cwd = filesystem::absolute(&path);
+                    app.selected = 0;
+                    refresh_listing(app);
+                }
+                Ok(path) => open_file(app, &path, &entry.name),
+                Err(err) => {
+                    app.side_pane = SidePane::Preview {
+                        title: entry.name,
+                        body: format!("Broken symlink:\n{err}"),
+                    };
+                }
+            }
+        }
+        FileType::File | FileType::Other => {
+            open_file(app, &entry.path.0, &entry.name);
+        }
+    }
+}
+
+fn open_file(app: &mut App, path: &std::path::Path, name: &str) {
+    match opener::open_with_system_default(path) {
+        Ok(()) => {
+            app.status = format!("Opened · {name}");
+            app.side_pane = SidePane::Preview {
+                title: name.to_string(),
+                body: format!(
+                    "Opened with default application\n\n{}",
+                    path.display()
+                ),
+            };
+        }
+        Err(err) => {
+            app.side_pane = SidePane::Preview {
+                title: name.to_string(),
+                body: format!(
+                    "Could not open with default application\n\n{}\n\n{err}",
+                    path.display()
+                ),
+            };
+            app.status = format!("Open failed: {err}");
         }
     }
 }
