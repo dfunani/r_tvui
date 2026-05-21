@@ -30,9 +30,17 @@ See **[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)** for:
 
 ## Docs
 
+- **[Project website](https://github.com/dfunani/r_tvui_web)** (`r_tvui_web` Next.js knowledge base — users, developers, contributors)
 - [Distribution & installation](docs/DISTRIBUTION.md)
 - [Design spec](docs/DESIGN_SPEC.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+
+### Run the website locally
+
+```bash
+cd ../r_tvui_web
+npm install && npm run dev
+```
 
 ## License
 
