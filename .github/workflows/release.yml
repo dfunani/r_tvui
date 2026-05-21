@@ -68,6 +68,19 @@ jobs:
           path: assets
           merge-multiple: true
 
+      # Stable filenames for /releases/latest/download/... (used by website install scripts)
+      - name: Add latest-download aliases
+        run: |
+          shopt -s globstar nullglob
+          for f in assets/**/r_tvui-*; do
+            base=$(basename "$f")
+            alias=$(echo "$base" | sed -E 's/^r_tvui-[0-9]+\.[0-9]+\.[0-9]+-/r_tvui-/')
+            if [ "$base" != "$alias" ]; then
+              cp "$f" "assets/$alias"
+            fi
+          done
+          ls -la assets/
+
       - uses: softprops/action-gh-release@v2
         with:
           files: assets/**/*

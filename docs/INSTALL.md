@@ -20,8 +20,8 @@ Replace `v0.1.0` below with the [latest release](https://github.com/dfunani/r_tv
 ## macOS (Apple Silicon) — recommended
 
 ```bash
-curl -LO https://github.com/dfunani/r_tvui/releases/download/v0.1.0/r_tvui-0.1.0-aarch64-apple-darwin.tar.gz
-tar xzf r_tvui-0.1.0-aarch64-apple-darwin.tar.gz
+curl -fL -O https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-aarch64-apple-darwin.tar.gz
+tar xzf r_tvui-aarch64-apple-darwin.tar.gz
 chmod +x r_tvui
 sudo mv r_tvui /usr/local/bin/   # optional: install globally
 r_tvui
@@ -36,8 +36,8 @@ xattr -d com.apple.quarantine r_tvui
 ## macOS (Intel)
 
 ```bash
-curl -LO https://github.com/dfunani/r_tvui/releases/download/v0.1.0/r_tvui-0.1.0-x86_64-apple-darwin.tar.gz
-tar xzf r_tvui-0.1.0-x86_64-apple-darwin.tar.gz
+curl -fL -O https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-x86_64-apple-darwin.tar.gz
+tar xzf r_tvui-x86_64-apple-darwin.tar.gz
 chmod +x r_tvui
 mv r_tvui ~/.local/bin/   # add ~/.local/bin to PATH if needed
 r_tvui
@@ -50,8 +50,8 @@ r_tvui
 Works on Ubuntu, Debian, Fedora, Arch, etc.:
 
 ```bash
-curl -LO https://github.com/dfunani/r_tvui/releases/download/v0.1.0/r_tvui-0.1.0-x86_64-unknown-linux-gnu.tar.gz
-tar xzf r_tvui-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+curl -fL -O https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-x86_64-unknown-linux-gnu.tar.gz
+tar xzf r_tvui-x86_64-unknown-linux-gnu.tar.gz
 chmod +x r_tvui
 mv r_tvui ~/.local/bin/
 r_tvui
@@ -62,7 +62,7 @@ r_tvui
 ## Windows
 
 1. Open [GitHub Releases](https://github.com/dfunani/r_tvui/releases).
-2. Download `r_tvui-0.1.0-x86_64-pc-windows-msvc.zip`.
+2. Download `r_tvui-x86_64-pc-windows-msvc.zip` (or the versioned name on the release page).
 3. Extract the zip.
 4. Run `r_tvui.exe` in PowerShell or Command Prompt.
 

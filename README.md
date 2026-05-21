@@ -13,9 +13,9 @@ Download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** 
 | Windows | `r_tvui-*-windows-msvc.zip` |
 
 ```bash
-# Example: macOS Apple Silicon
-curl -LO https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-aarch64-apple-darwin.tar.gz
-tar xzf r_tvui-aarch64-apple-darwin.tar.gz && chmod +x r_tvui && ./r_tvui
+# Example: macOS Apple Silicon (after a tagged release with CI assets)
+curl -fL -O https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-aarch64-apple-darwin.tar.gz
+tar xzf r_tvui-aarch64-apple-darwin.tar.gz && chmod +x r_tvui && r_tvui
 ```
 
 ## Run from source (developers)
