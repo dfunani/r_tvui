@@ -1,0 +1,11 @@
+[package]
+name = "filesystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+core = { path = "../core" }
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "sync", "fs", "time", "process"] }
+zscript = "0.100.0"
