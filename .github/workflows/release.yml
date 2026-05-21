@@ -4,6 +4,10 @@ on:
   push:
     tags: ["v*"]
 
+# Use Node.js 24 for JavaScript actions (checkout, artifacts, etc.)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
@@ -27,7 +31,7 @@ jobs:
             archive: zip
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -56,7 +60,7 @@ jobs:
           Compress-Archive -Path dist/* -DestinationPath "r_tvui-${version}-${{ matrix.target }}.zip"
           echo "ASSET=r_tvui-${version}-${{ matrix.target }}.zip" >> $env:GITHUB_ENV
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: r_tvui-${{ matrix.target }}
           path: r_tvui-*.*
@@ -65,7 +69,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: assets
           merge-multiple: true
