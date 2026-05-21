@@ -4,10 +4,6 @@ on:
   push:
     tags: ["v*"]
 
-# Use Node.js 24 for JavaScript actions (checkout, artifacts, etc.)
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 permissions:
   contents: write
 
@@ -47,7 +43,6 @@ jobs:
           cp "target/${{ matrix.target }}/release/r_tvui" dist/
           cp README.md dist/README.txt
           tar -czvf "r_tvui-${VERSION}-${{ matrix.target }}.tar.gz" -C dist .
-          echo "ASSET=r_tvui-${VERSION}-${{ matrix.target }}.tar.gz" >> "$GITHUB_ENV"
 
       - name: Package (Windows)
         if: matrix.archive == 'zip'
@@ -58,9 +53,8 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/r_tvui.exe" dist/
           Copy-Item README.md dist/README.txt
           Compress-Archive -Path dist/* -DestinationPath "r_tvui-${version}-${{ matrix.target }}.zip"
-          echo "ASSET=r_tvui-${version}-${{ matrix.target }}.zip" >> $env:GITHUB_ENV
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: r_tvui-${{ matrix.target }}
           path: r_tvui-*.*
@@ -69,7 +63,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           path: assets
           merge-multiple: true

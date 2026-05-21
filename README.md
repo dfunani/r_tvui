@@ -2,20 +2,27 @@
 
 Terminal file explorer in Rust — keyboard-driven, Finder-style split view, themes, and system default app integration.
 
-## Run from source
+## Install (easiest)
+
+Download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** — see **[docs/INSTALL.md](docs/INSTALL.md)** for copy-paste commands.
+
+| Platform | What to download |
+|----------|------------------|
+| macOS | `r_tvui-*-apple-darwin.tar.gz` |
+| Linux | `r_tvui-*-linux-gnu.tar.gz` |
+| Windows | `r_tvui-*-windows-msvc.zip` |
+
+```bash
+# Example: macOS Apple Silicon
+curl -LO https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-aarch64-apple-darwin.tar.gz
+tar xzf r_tvui-aarch64-apple-darwin.tar.gz && chmod +x r_tvui && ./r_tvui
+```
+
+## Run from source (developers)
 
 ```bash
 cargo run --release
 ```
-
-## Install for end users
-
-See **[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)** for:
-
-- Downloading release binaries (macOS, Linux, Windows)
-- Building and packaging `r_tvui` for any machine
-- GitHub Actions automated releases
-- Config path (`~/.config/rtvui/config.toml`)
 
 ## Quick reference
 
@@ -28,19 +35,14 @@ See **[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)** for:
 | `t` | Cycle theme |
 | `q` | Quit |
 
+Config: `~/.config/rtvui/config.toml`
+
 ## Docs
 
-- **[Project website](https://github.com/dfunani/r_tvui_web)** (`r_tvui_web` Next.js knowledge base — users, developers, contributors)
-- [Distribution & installation](docs/DISTRIBUTION.md)
-- [Design spec](docs/DESIGN_SPEC.md)
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
-
-### Run the website locally
-
-```bash
-cd ../r_tvui_web
-npm install && npm run dev
-```
+- **[Install guide](docs/INSTALL.md)** — users
+- **[Distribution](docs/DISTRIBUTION.md)** — maintainers (CI, releases)
+- **[Project website](https://github.com/dfunani/r_tvui_web)** — `r_tvui_web` Next.js site
+- [Design spec](docs/DESIGN_SPEC.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 
 ## License
 

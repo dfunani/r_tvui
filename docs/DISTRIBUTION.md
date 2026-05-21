@@ -1,6 +1,8 @@
 # Distributing R-TVUI — install on any machine
 
-This guide explains how to **build**, **package**, and **ship** R-TVUI so other people can download and run it without installing Rust. The app ships as a **single static binary** per platform (macOS, Linux, Windows).
+**Users installing R-TVUI:** use **[INSTALL.md](./INSTALL.md)** (GitHub Releases, tar/zip — no package manager setup).
+
+This guide is for **maintainers**: how to **build**, **package**, and **ship** releases via CI.
 
 **Repository:** https://github.com/dfunani/r_tvui
 
@@ -25,7 +27,21 @@ No database, Docker, or GUI toolkit is required.
 
 ---
 
-## Quick start for users (download a release)
+## What users download (published on each tag)
+
+CI attaches these assets to [GitHub Releases](https://github.com/dfunani/r_tvui/releases):
+
+| Asset | Platform |
+|-------|----------|
+| `r_tvui-<version>-aarch64-apple-darwin.tar.gz` | macOS Apple Silicon |
+| `r_tvui-<version>-x86_64-apple-darwin.tar.gz` | macOS Intel |
+| `r_tvui-<version>-x86_64-unknown-linux-gnu.tar.gz` | Linux |
+| `r_tvui-<version>-x86_64-pc-windows-msvc.zip` | Windows |
+
+Copy-paste install commands: **[INSTALL.md](./INSTALL.md)**.
+
+<details>
+<summary>Example install snippets (reference)</summary>
 
 Once you publish [GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository), users can:
 
@@ -66,6 +82,8 @@ r_tvui
 .\r_tvui.exe
 # Or add the folder to PATH via System Settings → Environment Variables
 ```
+
+</details>
 
 ---
 
@@ -225,44 +243,11 @@ After merging, pushing `v0.1.0` creates release assets automatically.
 
 ---
 
-## Other distribution channels
+## Release assets (automatic)
 
-### Install from source (developers)
+On each `v*` tag push, CI builds tarballs/zip for all platforms. Users install via **[INSTALL.md](./INSTALL.md)** — no Homebrew tap or third-party repo required.
 
-```bash
-git clone https://github.com/dfunani/r_tvui.git
-cd r_tvui
-cargo install --path . --locked
-# binary: ~/.cargo/bin/r_tvui
-```
-
-### crates.io (optional, later)
-
-1. Publish workspace crates or only the root package.
-2. Users run: `cargo install r_tvui`
-3. Requires a unique crate name on [crates.io](https://crates.io).
-
-### Homebrew (macOS, optional)
-
-```ruby
-# Formula/r_tvui.rb (example)
-class RTvui < Formula
-  desc "Terminal file explorer"
-  homepage "https://github.com/dfunani/r_tvui"
-  url "https://github.com/dfunani/r_tvui/archive/refs/tags/v0.1.0.tar.gz"
-  license "MIT"
-  depends_on "rust" => :build
-  def install
-    system "cargo", "install", *std_cargo_args
-  end
-end
-```
-
-For end users without Rust, prefer **bottle binaries** in the formula (download prebuilt release URL + `sha256`).
-
-### Linux packages (.deb / .rpm)
-
-Use [cargo-deb](https://github.com/kornelski/cargo-deb) or [nfpm](https://nfpm.goreleaser.com/) wrapping the release binary. Ship `/usr/bin/r_tvui` and a man page if desired.
+Optional later: [crates.io](https://crates.io/) (`cargo install r_tvui`) for developers.
 
 ---
 

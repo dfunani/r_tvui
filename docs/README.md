@@ -6,7 +6,8 @@ A working terminal file explorer prototype is in `src/`; see [Distribution](./DI
 
 ## Documentation
 
-- [Distribution & installation](./DISTRIBUTION.md) — build release binaries, GitHub Releases, install on macOS/Linux/Windows.
+- [Install guide](./INSTALL.md) — **start here** — GitHub Releases, tar/zip (easiest for users).
+- [Distribution](./DISTRIBUTION.md) — maintainers: CI, tagging, building releases.
 - [Design specification](./DESIGN_SPEC.md) — UX, architecture, preview pipeline, plugins, compatibility targets.
 - [Implementation plan](./IMPLEMENTATION_PLAN.md) — milestones, crate layout, testing, release strategy.
 
