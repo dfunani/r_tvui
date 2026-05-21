@@ -1,5 +1,5 @@
-use core::paths::{AbsolutePath, File, FileType};
-use filesystem::{list_directories, DirectoryListOptions, DirectorySortOrder, FileSystemError};
+use rtvui_core::paths::{AbsolutePath, File, FileType};
+use filesystem::{list_directories, DirectoryListOptions, FileSystemError};
 
 use crate::models::app::{App, SidePane};
 use crate::utils::previewer::{self, preview_path};
@@ -52,7 +52,7 @@ fn resolve_entry(entry: &File) -> ResolvedEntry {
 fn load_folder_pane(app: &mut App, path: AbsolutePath) {
     let opts = DirectoryListOptions {
         show_hidden: app.show_hidden,
-        sort: DirectorySortOrder::Name,
+        sort: app.sort,
         include_parent_link: false,
     };
 
@@ -102,10 +102,10 @@ fn file_open_hint(path: &std::path::Path) -> String {
     let meta = std::fs::metadata(path).ok();
     let size = meta
         .as_ref()
-        .map(|m| core::formatters::format_size(m.len()))
+        .map(|m| rtvui_core::formatters::format_size(m.len()))
         .unwrap_or_else(|| "—".to_string());
     format!(
-        "{}\n\nSize: {size}\n\nNot previewable in the terminal.\nPress Enter to open with your default application.",
+        "{}\n\nSize: {size}\n\nNot previewable in the terminal.\nPress Enter to open with the default app (if one is set).",
         path.display()
     )
 }

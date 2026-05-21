@@ -29,11 +29,16 @@ cargo run --release
 | Key | Action |
 |-----|--------|
 | `j` / `k` | Move selection |
-| `l` | Open folder |
-| `Enter` | Open folder / open file with default app |
-| `h` | Parent |
-| `t` | Cycle theme |
-| `q` | Quit |
+| `l` / Enter | Open folder / file |
+| `h` | Parent · `g` go to path · `G` home |
+| `/` filter · `s` sort · `y` copy path · `d` delete |
+| `u` / `i` history · `b` bookmark · `1`–`9` jump |
+| `?` help · `t` theme · `q` quit |
+
+```bash
+r_tvui ~/Projects    # open a specific directory
+r_tvui --version
+```
 
 Config: `~/.config/rtvui/config.toml`
 

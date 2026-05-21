@@ -1,5 +1,5 @@
 use crate::directories::DirectoryListResult;
-use core::paths::AbsolutePath;
+use rtvui_core::paths::AbsolutePath;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

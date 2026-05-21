@@ -2,6 +2,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use filesystem::DirectorySortOrder;
+
 use crate::theme::ThemeId;
 
 /// User settings persisted under `~/.config/rtvui/config.toml` (or `$RTVUI_CONFIG`).
@@ -9,12 +11,70 @@ use crate::theme::ThemeId;
 pub struct AppConfig {
     #[serde(default)]
     pub theme: ThemeId,
+    #[serde(default)]
+    pub sort: SortPreference,
+    #[serde(default = "default_true")]
+    pub use_trash: bool,
+    #[serde(default = "default_true")]
+    pub preview_on_move: bool,
+    #[serde(default)]
+    pub bookmarks: Vec<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SortPreference {
+    Name,
+    Size,
+    Modified,
+}
+
+impl Default for SortPreference {
+    fn default() -> Self {
+        Self::Name
+    }
+}
+
+impl From<SortPreference> for DirectorySortOrder {
+    fn from(value: SortPreference) -> Self {
+        match value {
+            SortPreference::Name => DirectorySortOrder::Name,
+            SortPreference::Size => DirectorySortOrder::Size,
+            SortPreference::Modified => DirectorySortOrder::Modified,
+        }
+    }
+}
+
+impl SortPreference {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Name => Self::Size,
+            Self::Size => Self::Modified,
+            Self::Modified => Self::Name,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Size => "size",
+            Self::Modified => "mtime",
+        }
+    }
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             theme: ThemeId::default(),
+            sort: SortPreference::default(),
+            use_trash: true,
+            preview_on_move: true,
+            bookmarks: Vec::new(),
         }
     }
 }
@@ -91,6 +151,7 @@ mod tests {
         let path = temp_config_path();
         let config = AppConfig {
             theme: ThemeId::Forest,
+            ..AppConfig::default()
         };
         config.save_to(&path).unwrap();
 
@@ -104,5 +165,10 @@ mod tests {
     fn theme_slug_parse() {
         assert_eq!(ThemeId::from_slug("midnight"), Some(ThemeId::Midnight));
         assert_eq!(ThemeId::from_slug("unknown"), None);
+    }
+
+    #[test]
+    fn sort_preference_cycles() {
+        assert_eq!(SortPreference::Name.next(), SortPreference::Size);
     }
 }

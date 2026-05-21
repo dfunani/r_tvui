@@ -108,6 +108,10 @@ Example:
 
 ```toml
 theme = "forest"
+sort = "name"          # name | size | modified
+use_trash = true
+preview_on_move = true
+bookmarks = ["/Users/you/Projects", "/Users/you/Downloads"]
 ```
 
 **Requirements:** a normal terminal app; true-color recommended for themes.
@@ -115,11 +119,22 @@ theme = "forest"
 | Key | Action |
 |-----|--------|
 | `j` / `k` | Move selection |
-| `l` | Open folder |
-| `Enter` | Open folder / open file with default app |
+| `l` / Enter | Open folder / open file with default app |
 | `h` | Parent directory |
+| `g` | Go to path |
+| `G` | Home directory |
+| `u` / `i` | History back / forward |
+| `/` | Filter by name |
+| `s` | Cycle sort (name / size / modified) |
+| `.` | Toggle hidden files |
+| `p` / `P` | Refresh preview / toggle preview-on-move |
+| `y` | Copy path to clipboard |
+| `b` | Bookmark folder · `1`–`9` jump to bookmark |
+| `F2` | Rename |
+| `d` | Delete (confirm; trash if enabled in config) |
 | `t` | Cycle theme |
-| `q` | Quit |
+| `?` | Help overlay |
+| `q` / `Esc` | Quit (`Esc` clears an active filter first) |
 
 ---
 

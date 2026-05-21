@@ -1,4 +1,4 @@
-use core::paths::FileType;
+use rtvui_core::paths::FileType;
 use std::fs::Metadata;
 use std::path::Path;
 

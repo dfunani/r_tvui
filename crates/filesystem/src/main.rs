@@ -1,4 +1,4 @@
-use core::paths::AbsolutePath;
+use rtvui_core::paths::AbsolutePath;
 use filesystem::directories::{list_directories_async, DirectoryListOptions, DirectorySortOrder};
 use filesystem::utils::{classify_file_type, is_hidden_name};
 use std::fs;
@@ -24,6 +24,7 @@ fn main() {
             DirectoryListOptions {
                 show_hidden: false,
                 sort: DirectorySortOrder::Name,
+                include_parent_link: true,
             },
         )
         .await;

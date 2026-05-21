@@ -278,12 +278,12 @@ cd ~/Projects && r_tvui
 | Key | Action |
 |-----|--------|
 | `j` / `k` | Move selection |
-| `l` | Open folder |
-| `Enter` | Open folder / open file with system app |
-| `h` | Parent directory |
+| `l` / Enter | Open folder / open file with system app |
+| `h` | Parent · `g` go to path · `G` home · `u`/`i` history |
+| `/` | Filter · `s` sort · `.` hidden · `?` help |
+| `y` | Copy path · `F2` rename · `d` delete (trash) |
+| `b` / `1`–`9` | Bookmarks |
 | `t` | Cycle theme (saved to config) |
-| `.` | Toggle hidden files |
-| `G` | Home directory |
 | `q` | Quit |
 
 **Themes** persist in `~/.config/rtvui/config.toml`:

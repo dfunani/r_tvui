@@ -1,5 +1,5 @@
 //! Shared theme identifiers and palettes.
-use core::paths::{File, FileType};
+use rtvui_core::paths::{File, FileType};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders};
 

@@ -1,4 +1,4 @@
-use core::paths::FileType;
+use rtvui_core::paths::FileType;
 use ratatui::crossterm::event::{Event, KeyCode};
 
 use crate::models::app::{App, AppState, SidePane};
@@ -54,8 +54,25 @@ fn test_move_selection_wraps() {
 #[test]
 fn test_handle_key_event_quit() {
     let mut app = App::default();
+    app.handle_key_event(Event::Key(KeyCode::Char('q').into()));
+    assert_eq!(app.state, AppState::Exit);
+}
+
+#[test]
+fn test_esc_quits_when_no_subquery() {
+    let mut app = App::default();
     app.handle_key_event(Event::Key(KeyCode::Esc.into()));
     assert_eq!(app.state, AppState::Exit);
+}
+
+#[test]
+fn test_esc_clears_filter_before_quit() {
+    let mut app = App::default();
+    app.filter_query = "foo".to_string();
+    crate::utils::navigation::apply_filter_to_app(&mut app);
+    app.handle_key_event(Event::Key(KeyCode::Esc.into()));
+    assert_eq!(app.state, AppState::Running);
+    assert!(app.filter_query.is_empty());
 }
 
 #[test]

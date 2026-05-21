@@ -5,5 +5,5 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-core = { path = "../core" }
+rtvui-core = { path = "../core", package = "core" }
 tokio.workspace = true

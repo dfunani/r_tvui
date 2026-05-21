@@ -1,4 +1,4 @@
-use core::paths::AbsolutePath;
+use rtvui_core::paths::AbsolutePath;
 use std::env::current_dir;
 use std::path::Path;
 

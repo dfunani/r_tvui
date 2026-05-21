@@ -1,6 +1,6 @@
 use crate::errors::FileSystemError;
 use crate::utils::{classify_file_type, is_hidden_name};
-use core::paths::{AbsolutePath, File, FileType};
+use rtvui_core::paths::{AbsolutePath, File, FileType};
 use std::cmp::Ordering;
 use std::fs;
 use std::time::Instant;

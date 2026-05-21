@@ -1,5 +1,5 @@
-use core::formatters::format_size;
-use core::paths::{File, FileType};
+use rtvui_core::formatters::format_size;
+use rtvui_core::paths::{File, FileType};
 use std::collections::HashMap;
 use std::fs::File as FsFile;
 use std::io::{BufReader, Read};
