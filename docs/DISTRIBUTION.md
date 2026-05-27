@@ -38,7 +38,7 @@ CI attaches these assets to [GitHub Releases](https://github.com/dfunani/r_tvui/
 | `r_tvui-<version>-x86_64-unknown-linux-gnu.tar.gz` | Linux |
 | `r_tvui-<version>-x86_64-pc-windows-msvc.zip` | Windows |
 
-Copy-paste install commands: **[INSTALL.md](./INSTALL.md)**.
+User install: **`scripts/install.sh`** (curl one-liner in **[INSTALL.md](./INSTALL.md)**) or manual tar/zip from Releases.
 
 <details>
 <summary>Example install snippets (reference)</summary>

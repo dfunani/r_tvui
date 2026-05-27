@@ -4,19 +4,19 @@ Terminal file explorer in Rust — keyboard-driven, Finder-style split view, the
 
 ## Install (easiest)
 
-Download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** — see **[docs/INSTALL.md](docs/INSTALL.md)** for copy-paste commands.
+**macOS / Linux** — one command (installs to `~/.local/bin`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/main/scripts/install.sh | bash
+```
+
+**All platforms** — download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** or see **[docs/INSTALL.md](docs/INSTALL.md)** (manual tar/zip, Windows, build from source).
 
 | Platform | What to download |
 |----------|------------------|
 | macOS | `r_tvui-*-apple-darwin.tar.gz` |
 | Linux | `r_tvui-*-linux-gnu.tar.gz` |
 | Windows | `r_tvui-*-windows-msvc.zip` |
-
-```bash
-# Example: macOS Apple Silicon (after a tagged release with CI assets)
-curl -fL -O https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-aarch64-apple-darwin.tar.gz
-tar xzf r_tvui-aarch64-apple-darwin.tar.gz && chmod +x r_tvui && r_tvui
-```
 
 ## Run from source (developers)
 

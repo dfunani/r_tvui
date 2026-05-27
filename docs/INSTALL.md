@@ -6,6 +6,30 @@ Replace `v2.0.0` below with the [latest release](https://github.com/dfunani/r_tv
 
 ---
 
+## Quick install (macOS / Linux)
+
+Detects your OS/arch, downloads the matching release, and installs to `~/.local/bin` (override with `PREFIX`).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/main/scripts/install.sh | bash
+```
+
+Or pin a version:
+
+```bash
+RTVUI_VERSION=2.0.0 curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/main/scripts/install.sh | bash
+```
+
+From a clone:
+
+```bash
+./scripts/install.sh
+```
+
+Ensure `~/.local/bin` is on your `PATH`. Windows and other platforms: use the manual steps below or the [project website](https://github.com/dfunani/r_tvui_web).
+
+---
+
 ## Pick your platform
 
 | Platform | File on Releases | Install style |
@@ -167,6 +191,7 @@ bookmarks = ["/Users/you/Projects", "/Users/you/Downloads"]
 
 | Problem | Fix |
 |---------|-----|
+| `bash: tmp: unbound variable` after install | Re-run install (fixed in current `main` — older scripts tripped `set -u` in the cleanup trap) |
 | `command not found` | Put `r_tvui` on your PATH or use full path `./r_tvui` |
 | `exec format error` (Linux) | Wrong CPU build — run `uname -m`. `aarch64` needs `aarch64-unknown-linux-gnu`, not `x86_64-unknown-linux-gnu` or macOS `apple-darwin` |
 | `/latest/download/...` returns 404 | Use the **versioned** filename from the [Releases](https://github.com/dfunani/r_tvui/releases) page (e.g. `r_tvui-1.0.0-…tar.gz`) |
