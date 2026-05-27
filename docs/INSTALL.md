@@ -11,13 +11,13 @@ Replace `v2.0.0` below with the [latest release](https://github.com/dfunani/r_tv
 Detects your OS/arch, downloads the matching release, and installs to `~/.local/bin` (override with `PREFIX`).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/master/scripts/install.sh | bash
 ```
 
 Or pin a version:
 
 ```bash
-RTVUI_VERSION=2.0.0 curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/main/scripts/install.sh | bash
+RTVUI_VERSION=2.0.0 curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/master/scripts/install.sh | bash
 ```
 
 From a clone:

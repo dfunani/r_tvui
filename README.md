@@ -7,7 +7,7 @@ Terminal file explorer in Rust — keyboard-driven, Finder-style split view, the
 **macOS / Linux** — one command (installs to `~/.local/bin`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/master/scripts/install.sh | bash
 ```
 
 **All platforms** — download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** or see **[docs/INSTALL.md](docs/INSTALL.md)** (manual tar/zip, Windows, build from source).
