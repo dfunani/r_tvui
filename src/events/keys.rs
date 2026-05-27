@@ -2,13 +2,12 @@ use ratatui::crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
 use crate::models::app::{App, AppState};
 use crate::models::mode::{AppMode, InputKind};
-use crate::utils::browser::update_side_pane;
 use crate::utils::clipboard;
 use crate::utils::navigation::{
     activate_selected, bookmark_cwd, confirm_delete, confirm_filter, confirm_goto_path,
     confirm_rename, force_preview, go_home, go_parent, goto_bookmark, history_back,
-    history_forward, move_selection, navigate_into_selected, refresh_listing, start_delete_confirm,
-    toggle_hidden,
+    history_forward, maybe_update_side_pane, move_selection, navigate_into_selected,
+    refresh_listing_force, start_delete_confirm, toggle_hidden,
 };
 
 impl App {
@@ -21,18 +20,9 @@ impl App {
         }
 
         match self.mode {
-            AppMode::Help => {
-                self.handle_help_keys(key.code, key.modifiers);
-                return;
-            }
-            AppMode::Input(kind) => {
-                self.handle_input_keys(kind, key.code, key.modifiers);
-                return;
-            }
-            AppMode::ConfirmDelete => {
-                self.handle_confirm_delete_keys(key.code);
-                return;
-            }
+            AppMode::Help => self.handle_help_keys(key.code, key.modifiers),
+            AppMode::Input(kind) => self.handle_input_keys(kind, key.code, key.modifiers),
+            AppMode::ConfirmDelete => self.handle_confirm_delete_keys(key.code),
             AppMode::Normal => self.handle_normal_keys(key.code, key.modifiers),
         }
     }
@@ -100,23 +90,19 @@ impl App {
             }
             KeyCode::Up | KeyCode::Char('k') => move_selection(self, -1),
             KeyCode::Down | KeyCode::Char('j') => move_selection(self, 1),
-            KeyCode::Home => {
-                if !self.entries.is_empty() {
-                    self.selected = 0;
-                    maybe_update_side_pane(self);
-                }
+            KeyCode::Home if !self.entries.is_empty() => {
+                self.selected = 0;
+                maybe_update_side_pane(self);
             }
-            KeyCode::End => {
-                if !self.entries.is_empty() {
-                    self.selected = self.entries.len() - 1;
-                    maybe_update_side_pane(self);
-                }
+            KeyCode::End if !self.entries.is_empty() => {
+                self.selected = self.entries.len() - 1;
+                maybe_update_side_pane(self);
             }
             KeyCode::Enter => activate_selected(self),
             KeyCode::Right | KeyCode::Char('l') => navigate_into_selected(self),
             KeyCode::Left | KeyCode::Char('h') => go_parent(self),
             KeyCode::Char('G') => go_home(self),
-            KeyCode::Char('r') if modifiers.is_empty() => refresh_listing(self),
+            KeyCode::Char('r') if modifiers.is_empty() => refresh_listing_force(self),
             KeyCode::Char('.') if modifiers.is_empty() => toggle_hidden(self),
             KeyCode::Char('t') | KeyCode::Char('T') if modifiers.is_empty() => self.cycle_theme(),
             KeyCode::Char('s') if modifiers.is_empty() => self.cycle_sort(),
@@ -161,11 +147,5 @@ impl App {
             Ok(()) => self.status = format!("Copied · {}", entry.path.0.display()),
             Err(err) => self.status = format!("Clipboard: {err}"),
         }
-    }
-}
-
-fn maybe_update_side_pane(app: &mut App) {
-    if app.preview_on_move {
-        update_side_pane(app);
     }
 }

@@ -11,19 +11,16 @@ pub fn absolute(path: &Path) -> AbsolutePath {
 }
 
 pub fn parent(path: &AbsolutePath) -> Option<AbsolutePath> {
-    path.0.parent().map(|p| absolute(p))
+    path.0.parent().map(absolute)
 }
 
 pub fn join(parent: &AbsolutePath, name: &str) -> AbsolutePath {
     AbsolutePath(parent.0.join(name))
 }
 
-/// Returns true when `path` is under at least one configured root.
 pub fn assert_allowed(path: &AbsolutePath, roots: &[AbsolutePath]) -> bool {
     if roots.is_empty() {
         return true;
     }
-    roots
-        .iter()
-        .any(|root| path.0.starts_with(&root.0))
+    roots.iter().any(|root| path.0.starts_with(&root.0))
 }

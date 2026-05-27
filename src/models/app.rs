@@ -5,34 +5,26 @@ use filesystem::DirectorySortOrder;
 
 use crate::models::mode::{AppMode, InputKind};
 use crate::theme::ThemeId;
-use crate::utils::config::{self, AppConfig, SortPreference};
 use crate::utils::browser::update_side_pane;
+use crate::utils::config::{self, AppConfig, SortPreference};
 use crate::utils::history::NavHistory;
+use crate::utils::listing::ListingService;
 use crate::utils::startup::resolve_start_path;
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Default)]
 pub enum AppState {
     Exit,
+    #[default]
     Running,
 }
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self::Running
-    }
-}
-
-/// Right-hand pane: Finder-style folder browser or file preview.
 #[derive(Debug, Clone)]
 pub enum SidePane {
-    /// Full-width file list (e.g. `..` selected or no side content).
     Hidden,
-    /// Contents of the highlighted folder (Mac column view).
     Folder {
         path: AbsolutePath,
         entries: Vec<File>,
     },
-    /// In-terminal preview for the highlighted file.
     Preview {
         title: String,
         body: String,
@@ -67,6 +59,11 @@ pub struct App {
     pub use_trash: bool,
     pub preview_on_move: bool,
     pub delete_target: Option<AbsolutePath>,
+    pub listing: ListingService,
+    pub browser_listing_gen: u64,
+    pub side_pane_gen: u64,
+    pub listing_loading: bool,
+    pub side_loading: bool,
 }
 
 impl Default for App {
@@ -101,15 +98,20 @@ impl App {
             use_trash: cfg.use_trash,
             preview_on_move: cfg.preview_on_move,
             delete_target: None,
+            listing: ListingService::new(),
+            browser_listing_gen: 0,
+            side_pane_gen: 0,
+            listing_loading: false,
+            side_loading: false,
         };
-        crate::utils::navigation::refresh_listing(&mut app);
+        crate::utils::navigation::refresh_listing_sync(&mut app);
 
-        if let Some(name) = select_name {
-            if let Some(index) = app.entries.iter().position(|e| e.name == name) {
-                app.selected = index;
-                if app.preview_on_move {
-                    update_side_pane(&mut app);
-                }
+        if let Some(name) = select_name
+            && let Some(index) = app.entries.iter().position(|e| e.name == name)
+        {
+            app.selected = index;
+            if app.preview_on_move {
+                update_side_pane(&mut app);
             }
         }
 
@@ -120,7 +122,6 @@ impl App {
         app
     }
 
-    /// Active in normal mode (e.g. filter) — Esc dismisses these before quitting.
     pub fn has_active_subquery(&self) -> bool {
         !self.filter_query.is_empty()
     }
@@ -148,6 +149,7 @@ impl App {
         self.sort_pref = self.sort_pref.next();
         self.sort = self.sort_pref.into();
         self.status = format!("Sort: {}", self.sort_pref.label());
+        self.listing.clear_cache();
         crate::utils::navigation::refresh_listing(self);
     }
 

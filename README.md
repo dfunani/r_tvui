@@ -1,6 +1,6 @@
 # R-TVUI
 
-Terminal file explorer in Rust — keyboard-driven, Finder-style split view, themes, and system default app integration.
+Terminal file explorer in Rust — keyboard-driven, Finder-style split view, themes, and system default app integration. **v2** uses async directory listing and a side-pane cache so large folders stay responsive.
 
 ## Install (easiest)
 
@@ -47,7 +47,7 @@ Config: `~/.config/rtvui/config.toml`
 - **[Install guide](docs/INSTALL.md)** — users
 - **[Distribution](docs/DISTRIBUTION.md)** — maintainers (CI, releases)
 - **[Project website](https://github.com/dfunani/r_tvui_web)** — `r_tvui_web` Next.js site
-- [Design spec](docs/DESIGN_SPEC.md) · [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [Design spec](docs/DESIGN_SPEC.md) · [Review](docs/REVIEW.md) · [Planning archive](docs/planning/)
 
 ## License
 

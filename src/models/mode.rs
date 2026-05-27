@@ -17,11 +17,4 @@ impl AppMode {
     pub fn is_input(&self) -> bool {
         matches!(self, Self::Input(_))
     }
-
-    pub fn input_kind(&self) -> Option<InputKind> {
-        match self {
-            Self::Input(kind) => Some(*kind),
-            _ => None,
-        }
-    }
 }

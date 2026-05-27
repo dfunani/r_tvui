@@ -3,6 +3,7 @@ pub mod clipboard;
 pub mod config;
 pub mod filter;
 pub mod history;
+pub mod listing;
 pub mod navigation;
 pub mod opener;
 pub mod ops;

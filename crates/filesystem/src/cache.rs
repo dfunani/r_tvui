@@ -42,15 +42,14 @@ impl DirectoriesCache {
     }
 
     pub fn insert(&mut self, result: Arc<DirectoryListResult>) {
-        if self.entries.len() >= self.max_entries {
-            if let Some(oldest_key) = self
+        if self.entries.len() >= self.max_entries
+            && let Some(oldest_key) = self
                 .entries
                 .iter()
                 .min_by_key(|(_, (instant, _))| *instant)
                 .map(|(k, _)| k.clone())
-            {
-                self.entries.remove(&oldest_key);
-            }
+        {
+            self.entries.remove(&oldest_key);
         }
         self.entries
             .insert(result.path.0.clone(), (Instant::now(), result));
@@ -58,5 +57,9 @@ impl DirectoriesCache {
 
     pub fn invalidate(&mut self, path: &AbsolutePath) {
         self.entries.remove(&path.0);
+    }
+
+    pub fn clear(&mut self) {
+        self.entries.clear();
     }
 }

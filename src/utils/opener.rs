@@ -1,9 +1,13 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-/// Try to open a path with the OS default application.
-/// Child stdout/stderr are discarded so macOS Launch Services errors cannot
-/// corrupt the TUI. Returns `true` only when the open command reports success.
+pub fn open_in_background(path: &Path) {
+    let path = path.to_path_buf();
+    std::thread::spawn(move || {
+        let _ = open_with_system_default(&path);
+    });
+}
+
 pub fn try_open_with_system_default(path: &Path) -> bool {
     open_with_system_default(path).is_ok()
 }
@@ -11,7 +15,6 @@ pub fn try_open_with_system_default(path: &Path) -> bool {
 fn open_with_system_default(path: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "macos")]
     {
-        // Wait for `open` so we know if Launch Services found an app (spawn alone lies).
         let status = Command::new("open")
             .arg(path.as_os_str())
             .stdin(Stdio::null())

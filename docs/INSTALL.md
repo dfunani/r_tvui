@@ -2,7 +2,7 @@
 
 The easiest way to get R-TVUI is from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)**. No Rust, no Homebrew tap, no build tools required.
 
-Replace `v0.1.0` below with the [latest release](https://github.com/dfunani/r_tvui/releases/latest) tag if a newer version exists.
+Replace `v2.0.0` below with the [latest release](https://github.com/dfunani/r_tvui/releases/latest) tag if a newer version exists.
 
 ---
 
@@ -12,8 +12,19 @@ Replace `v0.1.0` below with the [latest release](https://github.com/dfunani/r_tv
 |----------|------------------|---------------|
 | macOS (Apple Silicon) | `r_tvui-*-aarch64-apple-darwin.tar.gz` | Extract → run |
 | macOS (Intel) | `r_tvui-*-x86_64-apple-darwin.tar.gz` | Extract → run |
-| Linux | `r_tvui-*-x86_64-unknown-linux-gnu.tar.gz` | Extract → run |
+| Linux (Intel/AMD 64-bit) | `r_tvui-*-x86_64-unknown-linux-gnu.tar.gz` | Extract → run |
+| Linux (ARM64, e.g. Raspberry Pi, ARM VPS) | `r_tvui-*-aarch64-unknown-linux-gnu.tar.gz` | Extract → run |
 | Windows | `r_tvui-*-x86_64-pc-windows-msvc.zip` | Extract → run |
+
+Check your CPU architecture first:
+
+```bash
+uname -m
+# x86_64  → use x86_64-unknown-linux-gnu (Intel/AMD)
+# aarch64 → use aarch64-unknown-linux-gnu (ARM64)
+```
+
+Do **not** use the macOS `aarch64-apple-darwin` build on Linux — same CPU family, different OS.
 
 ---
 
@@ -47,15 +58,29 @@ r_tvui
 
 ## Linux
 
-Works on Ubuntu, Debian, Fedora, Arch, etc.:
+Works on Ubuntu, Debian, Fedora, Arch, etc.
+
+**Intel/AMD (`uname -m` → `x86_64`):**
 
 ```bash
-curl -fL -O https://github.com/dfunani/r_tvui/releases/latest/download/r_tvui-x86_64-unknown-linux-gnu.tar.gz
-tar xzf r_tvui-x86_64-unknown-linux-gnu.tar.gz
+curl -fL -O https://github.com/dfunani/r_tvui/releases/download/v1.0.0/r_tvui-1.0.0-x86_64-unknown-linux-gnu.tar.gz
+tar xzf r_tvui-1.0.0-x86_64-unknown-linux-gnu.tar.gz
 chmod +x r_tvui
 mv r_tvui ~/.local/bin/
 r_tvui
 ```
+
+**ARM64 (`uname -m` → `aarch64`)** — from v2.0.0 onward (or build from source on v1.0.0):
+
+```bash
+curl -fL -O https://github.com/dfunani/r_tvui/releases/download/v2.0.0/r_tvui-2.0.0-aarch64-unknown-linux-gnu.tar.gz
+tar xzf r_tvui-2.0.0-aarch64-unknown-linux-gnu.tar.gz
+chmod +x r_tvui
+mv r_tvui ~/.local/bin/
+r_tvui
+```
+
+After a release with stable aliases, `/releases/latest/download/r_tvui-aarch64-unknown-linux-gnu.tar.gz` works the same way (replace the versioned URL if `latest` 404s on an older tag).
 
 ---
 
@@ -143,6 +168,8 @@ bookmarks = ["/Users/you/Projects", "/Users/you/Downloads"]
 | Problem | Fix |
 |---------|-----|
 | `command not found` | Put `r_tvui` on your PATH or use full path `./r_tvui` |
+| `exec format error` (Linux) | Wrong CPU build — run `uname -m`. `aarch64` needs `aarch64-unknown-linux-gnu`, not `x86_64-unknown-linux-gnu` or macOS `apple-darwin` |
+| `/latest/download/...` returns 404 | Use the **versioned** filename from the [Releases](https://github.com/dfunani/r_tvui/releases) page (e.g. `r_tvui-1.0.0-…tar.gz`) |
 | Linux: Enter does not open files | `sudo apt install xdg-utils` |
 | Wrong or dull colors | Use a modern terminal; try theme `mono` in config |
 | Release asset missing | Check [Releases](https://github.com/dfunani/r_tvui/releases) — CI publishes on each `v*` tag |

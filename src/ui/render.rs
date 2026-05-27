@@ -1,4 +1,3 @@
-use rtvui_core::formatters::format_size;
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
@@ -7,6 +6,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Clear, List, ListItem, ListState, Paragraph, StatefulWidget, Widget, Wrap},
 };
+use rtvui_core::formatters::format_size;
 
 use crate::models::app::{App, SidePane};
 use crate::models::mode::{AppMode, InputKind};

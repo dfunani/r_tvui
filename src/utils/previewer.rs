@@ -2,7 +2,7 @@ use rtvui_core::formatters::format_size;
 use rtvui_core::paths::{File, FileType};
 use std::collections::HashMap;
 use std::fs::File as FsFile;
-use std::io::{BufReader, Read};
+use std::io::Read;
 use std::path::Path;
 
 const PREVIEW_MAX_BYTES: usize = 64 * 1024;
@@ -28,11 +28,7 @@ impl JSONPreviewer {
 }
 
 pub fn read_json_file(path: &Path) -> std::io::Result<String> {
-    let file = FsFile::open(path)?;
-    let mut reader = BufReader::new(file);
-    let mut data = String::new();
-    reader.read_to_string(&mut data)?;
-    Ok(data)
+    read_text_prefix(path)
 }
 
 pub fn is_terminal_previewable(path: &Path) -> bool {
@@ -85,11 +81,7 @@ fn preview_directory(path: &Path) -> String {
 
 fn preview_symlink(path: &Path) -> String {
     match std::fs::read_link(path) {
-        Ok(target) => format!(
-            "Symlink\n{}\n\n→ {}",
-            path.display(),
-            target.display()
-        ),
+        Ok(target) => format!("Symlink\n{}\n\n→ {}", path.display(), target.display()),
         Err(err) => format!("Symlink\n{}\n\n{err}", path.display()),
     }
 }
@@ -130,7 +122,8 @@ fn preview_file(path: &Path) -> String {
 fn is_text_extension(ext: &str) -> bool {
     matches!(
         ext,
-        "txt" | "md"
+        "txt"
+            | "md"
             | "rs"
             | "toml"
             | "json"

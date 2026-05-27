@@ -1,7 +1,7 @@
-//! Shared theme identifiers and palettes.
-use rtvui_core::paths::{File, FileType};
+//! Theme palettes for the TUI.
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders};
+use rtvui_core::paths::{File, FileType};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]

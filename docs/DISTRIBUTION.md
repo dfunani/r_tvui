@@ -159,7 +159,7 @@ r_tvui-<version>-<target>.zip      # Windows
 Example packaging script (macOS/Linux):
 
 ```bash
-VERSION=0.1.0
+VERSION=2.0.0
 TARGET=aarch64-apple-darwin
 BIN=target/${TARGET}/release/r_tvui
 
@@ -173,7 +173,7 @@ For Windows, zip `r_tvui.exe` plus a short README.
 
 ### 5. Publish to GitHub Releases
 
-1. Tag a version: `git tag v0.1.0 && git push origin v0.1.0`
+1. Tag a version: `git tag v2.0.0 && git push origin v2.0.0`
 2. Open **GitHub → Releases → Draft a new release**
 3. Attach all `r_tvui-*` archives
 4. Paste release notes (features, keybindings, terminal requirements)
@@ -239,7 +239,7 @@ jobs:
           files: r_tvui-*.*
 ```
 
-After merging, pushing `v0.1.0` creates release assets automatically.
+After merging, pushing `v2.0.0` creates release assets automatically.
 
 ---
 
@@ -255,10 +255,10 @@ Optional later: [crates.io](https://crates.io/) (`cargo install r_tvui`) for dev
 
 Before each release:
 
-- [ ] Bump `version` in root `Cargo.toml` (workspace `0.1.0`)
+- [ ] Bump `version` in root `Cargo.toml` (workspace `2.0.0`)
 - [ ] Run `cargo test --workspace`
 - [ ] Run `cargo build --release` on at least one machine
-- [ ] Tag `v0.1.0` and push
+- [ ] Tag `v2.0.0` and push
 - [ ] Upload or CI-publish binaries
 - [ ] Update release notes (keybindings, themes, requirements)
 
@@ -337,4 +337,4 @@ For distribution outside the Mac App Store, notarization with an Apple Developer
 | **Maintainable** | `cargo build --release` + tag + CI matrix |
 | **Settings follow user** | `~/.config/rtvui/config.toml` |
 
-Start with **native `cargo build --release`**, then add the **GitHub Actions** workflow when you are ready to publish `v0.1.0`.
+Start with **native `cargo build --release`**, then add the **GitHub Actions** workflow when you are ready to publish `v2.0.0`.

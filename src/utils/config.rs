@@ -6,7 +6,7 @@ use filesystem::DirectorySortOrder;
 
 use crate::theme::ThemeId;
 
-/// User settings persisted under `~/.config/rtvui/config.toml` (or `$RTVUI_CONFIG`).
+/// Settings in `~/.config/rtvui/config.toml` (override with `RTVUI_CONFIG`).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AppConfig {
     #[serde(default)]
@@ -25,18 +25,13 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SortPreference {
+    #[default]
     Name,
     Size,
     Modified,
-}
-
-impl Default for SortPreference {
-    fn default() -> Self {
-        Self::Name
-    }
 }
 
 impl From<SortPreference> for DirectorySortOrder {

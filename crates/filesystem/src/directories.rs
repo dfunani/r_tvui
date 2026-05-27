@@ -121,7 +121,6 @@ pub fn list_directories(
     })
 }
 
-/// Async listing for future background refresh.
 pub async fn list_directories_async(
     path: AbsolutePath,
     opts: DirectoryListOptions,

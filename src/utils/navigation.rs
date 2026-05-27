@@ -1,11 +1,12 @@
+use std::sync::Arc;
+
+use filesystem::{DirectoryListOptions, FileSystemError, list_directories, parent};
 use rtvui_core::paths::{AbsolutePath, FileType};
-use filesystem::{
-    list_directories, parent, DirectoryListOptions, FileSystemError,
-};
 
 use crate::models::app::{App, SidePane};
 use crate::utils::browser::update_side_pane;
 use crate::utils::filter::apply_name_filter;
+use crate::utils::listing::ListingEvent;
 use crate::utils::opener;
 
 pub fn list_options(app: &App) -> DirectoryListOptions {
@@ -16,7 +17,124 @@ pub fn list_options(app: &App) -> DirectoryListOptions {
     }
 }
 
-pub fn refresh_listing(app: &mut App) {
+pub fn side_list_options(app: &App) -> DirectoryListOptions {
+    DirectoryListOptions {
+        show_hidden: app.show_hidden,
+        sort: app.sort,
+        include_parent_link: false,
+    }
+}
+
+pub fn poll_listing_events(app: &mut App) {
+    let events: Vec<ListingEvent> = app.listing.drain().collect();
+    for event in events {
+        apply_listing_event(app, event);
+    }
+}
+
+fn apply_listing_event(app: &mut App, event: ListingEvent) {
+    match event {
+        ListingEvent::Browser { generation, result } => {
+            if generation != app.browser_listing_gen {
+                return;
+            }
+            app.listing_loading = false;
+            apply_browser_result(app, result);
+        }
+        ListingEvent::SideFolder {
+            generation,
+            path,
+            result,
+        } => {
+            if generation != app.side_pane_gen {
+                return;
+            }
+            app.side_loading = false;
+            apply_side_folder_result(app, path, result);
+        }
+        ListingEvent::SidePreview {
+            generation,
+            title,
+            body,
+        } => {
+            if generation != app.side_pane_gen {
+                return;
+            }
+            app.side_loading = false;
+            app.side_pane = SidePane::Preview { title, body };
+        }
+    }
+}
+
+fn apply_browser_result(
+    app: &mut App,
+    result: Result<Arc<filesystem::DirectoryListResult>, FileSystemError>,
+) {
+    match result {
+        Ok(result) => {
+            app.list_partial = result.partial;
+            app.all_entries = result.entries.clone();
+            apply_filter_to_app(app);
+            app.status = build_status(app, &result.error_rows);
+            maybe_update_side_pane(app);
+        }
+        Err(FileSystemError::Io(err)) => {
+            app.all_entries.clear();
+            app.entries.clear();
+            app.side_pane = SidePane::Preview {
+                title: "Error".to_string(),
+                body: format!("Failed to read directory:\n{err}"),
+            };
+            app.status = format!("Error: {err}");
+        }
+        Err(err) => {
+            app.all_entries.clear();
+            app.entries.clear();
+            app.side_pane = SidePane::Preview {
+                title: "Error".to_string(),
+                body: format!("{err:?}"),
+            };
+            app.status = format!("Error: {err:?}");
+        }
+    }
+}
+
+fn apply_side_folder_result(
+    app: &mut App,
+    path: AbsolutePath,
+    result: Result<Arc<filesystem::DirectoryListResult>, FileSystemError>,
+) {
+    match result {
+        Ok(result) => {
+            let title = path
+                .0
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.0.display().to_string());
+            app.side_pane = SidePane::Folder {
+                path,
+                entries: result.entries.clone(),
+            };
+            if result.partial {
+                app.status = format!("{title} · truncated");
+            }
+        }
+        Err(FileSystemError::Io(err)) => {
+            app.side_pane = SidePane::Preview {
+                title: path.0.display().to_string(),
+                body: format!("Cannot list folder:\n{err}"),
+            };
+        }
+        Err(err) => {
+            app.side_pane = SidePane::Preview {
+                title: "Folder".to_string(),
+                body: format!("{err:?}"),
+            };
+        }
+    }
+}
+
+pub fn refresh_listing_sync(app: &mut App) {
     match list_directories(app.cwd.clone(), list_options(app)) {
         Ok(result) => {
             app.list_partial = result.partial;
@@ -46,6 +164,19 @@ pub fn refresh_listing(app: &mut App) {
     }
 }
 
+pub fn refresh_listing(app: &mut App) {
+    app.browser_listing_gen = app.browser_listing_gen.wrapping_add(1);
+    let generation = app.browser_listing_gen;
+    app.listing_loading = true;
+    app.status = loading_status(app);
+    app.listing.request_browser(generation, app.cwd.clone(), list_options(app));
+}
+
+pub fn refresh_listing_force(app: &mut App) {
+    app.listing.invalidate(&app.cwd);
+    refresh_listing(app);
+}
+
 pub fn apply_filter_to_app(app: &mut App) {
     app.entries = apply_name_filter(&app.all_entries, &app.filter_query);
     if app.selected >= app.entries.len() {
@@ -72,7 +203,7 @@ pub fn move_selection(app: &mut App, delta: isize) {
     maybe_update_side_pane(app);
 }
 
-fn maybe_update_side_pane(app: &mut App) {
+pub fn maybe_update_side_pane(app: &mut App) {
     if app.preview_on_move {
         update_side_pane(app);
     }
@@ -136,7 +267,7 @@ pub fn activate_selected(app: &mut App) {
                 Ok(path) if path.is_dir() => {
                     navigate_to(app, filesystem::absolute(&path), true);
                 }
-                Ok(path) => open_file(app, &path, &entry.name),
+                Ok(path) => open_file(&path),
                 Err(err) => {
                     app.side_pane = SidePane::Preview {
                         title: entry.name,
@@ -146,14 +277,13 @@ pub fn activate_selected(app: &mut App) {
             }
         }
         FileType::File | FileType::Other => {
-            open_file(app, &entry.path.0, &entry.name);
+            open_file(&entry.path.0);
         }
     }
 }
 
-fn open_file(_app: &mut App, path: &std::path::Path, _name: &str) {
-    let _ = opener::try_open_with_system_default(path);
-    // No app: silent — keep listing/preview as-is (no status, no stderr in TUI).
+fn open_file(path: &std::path::Path) {
+    opener::open_in_background(path);
 }
 
 pub fn go_parent(app: &mut App) {
@@ -194,6 +324,7 @@ pub fn history_forward(app: &mut App) {
 
 pub fn toggle_hidden(app: &mut App) {
     app.show_hidden = !app.show_hidden;
+    app.listing.clear_cache();
     refresh_listing(app);
 }
 
@@ -245,6 +376,7 @@ pub fn confirm_rename(app: &mut App, new_name: &str) {
     match crate::utils::ops::rename_path(&entry.path.0, &dest) {
         Ok(()) => {
             app.status = format!("Renamed → {new_name}");
+            app.listing.clear_cache();
             refresh_listing(app);
         }
         Err(err) => app.status = format!("Rename failed: {err}"),
@@ -279,6 +411,7 @@ pub fn confirm_delete(app: &mut App) {
             let via = if app.use_trash { "trash" } else { "permanent" };
             app.status = format!("Deleted ({via}) · {name}");
             app.mode = crate::models::mode::AppMode::Normal;
+            app.listing.clear_cache();
             refresh_listing(app);
         }
         Err(err) => {
@@ -318,18 +451,26 @@ pub fn goto_bookmark(app: &mut App, index: usize) {
     }
 }
 
-fn build_status(
-    app: &App,
-    errors: &[filesystem::DirectoryListErrorRow],
-) -> String {
+fn loading_status(app: &App) -> String {
+    if app.listing_loading {
+        "Loading…".to_string()
+    } else {
+        build_status(app, &[])
+    }
+}
+
+fn build_status(app: &App, errors: &[filesystem::DirectoryListErrorRow]) -> String {
     let mut status = format!(
         "{} entries · sort:{}",
-        app.entries
-            .iter()
-            .filter(|e| !e.is_parent_link)
-            .count(),
+        app.entries.iter().filter(|e| !e.is_parent_link).count(),
         app.sort_pref.label()
     );
+    if app.listing_loading {
+        status.push_str(" · loading");
+    }
+    if app.side_loading {
+        status.push_str(" · preview");
+    }
     if !app.filter_query.is_empty() {
         status.push_str(&format!(" · filter:{}", app.filter_query));
     }

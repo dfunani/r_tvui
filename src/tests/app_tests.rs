@@ -1,8 +1,22 @@
-use rtvui_core::paths::FileType;
+use std::time::Duration;
+
 use ratatui::crossterm::event::{Event, KeyCode};
+use rtvui_core::paths::FileType;
 
 use crate::models::app::{App, AppState, SidePane};
-use crate::utils::navigation::{move_selection, refresh_listing, toggle_hidden};
+use crate::utils::navigation::{
+    move_selection, poll_listing_events, refresh_listing, toggle_hidden,
+};
+
+fn drain_listing(app: &mut App) {
+    for _ in 0..200 {
+        poll_listing_events(app);
+        if !app.listing_loading && !app.side_loading {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
 
 #[test]
 fn test_app_starts_running() {
@@ -35,6 +49,7 @@ fn test_directory_selection_shows_folder_pane() {
     {
         app.selected = index;
         crate::utils::browser::update_side_pane(&mut app);
+        drain_listing(&mut app);
         assert!(matches!(app.side_pane, SidePane::Folder { .. }));
     }
 }
@@ -67,8 +82,10 @@ fn test_esc_quits_when_no_subquery() {
 
 #[test]
 fn test_esc_clears_filter_before_quit() {
-    let mut app = App::default();
-    app.filter_query = "foo".to_string();
+    let mut app = App {
+        filter_query: "foo".to_string(),
+        ..App::default()
+    };
     crate::utils::navigation::apply_filter_to_app(&mut app);
     app.handle_key_event(Event::Key(KeyCode::Esc.into()));
     assert_eq!(app.state, AppState::Running);
@@ -80,6 +97,7 @@ fn test_toggle_hidden() {
     let mut app = App::default();
     let before = app.show_hidden;
     toggle_hidden(&mut app);
+    drain_listing(&mut app);
     assert_ne!(app.show_hidden, before);
 }
 
@@ -93,8 +111,11 @@ fn test_cycle_theme() {
 
 #[test]
 fn test_refresh_listing_keeps_valid_selection() {
-    let mut app = App::default();
-    app.selected = 0;
+    let mut app = App {
+        selected: 0,
+        ..App::default()
+    };
     refresh_listing(&mut app);
+    drain_listing(&mut app);
     assert!(app.selected < app.entries.len().max(1));
 }
