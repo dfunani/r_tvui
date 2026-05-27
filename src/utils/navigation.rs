@@ -169,7 +169,8 @@ pub fn refresh_listing(app: &mut App) {
     let generation = app.browser_listing_gen;
     app.listing_loading = true;
     app.status = loading_status(app);
-    app.listing.request_browser(generation, app.cwd.clone(), list_options(app));
+    app.listing
+        .request_browser(generation, app.cwd.clone(), list_options(app));
 }
 
 pub fn refresh_listing_force(app: &mut App) {
@@ -294,11 +295,7 @@ pub fn go_parent(app: &mut App) {
 
 pub fn go_home(app: &mut App) {
     if let Some(home) = std::env::var_os("HOME") {
-        navigate_to(
-            app,
-            filesystem::absolute(std::path::Path::new(&home)),
-            true,
-        );
+        navigate_to(app, filesystem::absolute(std::path::Path::new(&home)), true);
     }
 }
 

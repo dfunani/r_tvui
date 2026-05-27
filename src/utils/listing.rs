@@ -70,12 +70,7 @@ impl ListingService {
         }
     }
 
-    pub fn request_browser(
-        &self,
-        generation: u64,
-        path: AbsolutePath,
-        opts: DirectoryListOptions,
-    ) {
+    pub fn request_browser(&self, generation: u64, path: AbsolutePath, opts: DirectoryListOptions) {
         self.spawn_directory_listing(generation, path, opts, ListingKind::Browser);
     }
 
@@ -119,10 +114,7 @@ impl ListingService {
 
         self.runtime.spawn(async move {
             let result = {
-                let cached = cache
-                    .lock()
-                    .ok()
-                    .and_then(|c| c.get(&path_for_cache));
+                let cached = cache.lock().ok().and_then(|c| c.get(&path_for_cache));
                 if let Some(hit) = cached {
                     Ok(hit)
                 } else {

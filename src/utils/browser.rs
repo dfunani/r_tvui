@@ -43,9 +43,7 @@ fn resolve_entry(entry: &File) -> ResolvedEntry {
 
     if entry.kind == FileType::Symlink {
         return match std::fs::canonicalize(&entry.path.0) {
-            Ok(path) if path.is_dir() => {
-                ResolvedEntry::Directory(filesystem::absolute(&path))
-            }
+            Ok(path) if path.is_dir() => ResolvedEntry::Directory(filesystem::absolute(&path)),
             Ok(path) => ResolvedEntry::File(path),
             Err(err) => ResolvedEntry::Broken(err.to_string()),
         };
