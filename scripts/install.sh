@@ -36,7 +36,7 @@ detect_target() {
       esac
       ;;
     *)
-      echo "unsupported OS: $os (see docs/INSTALL.md for Windows or build from source)" >&2
+      echo "unsupported OS: $os (see docs/tutorial.md Phase 10 for Windows or build from source)" >&2
       exit 1
       ;;
   esac
@@ -100,7 +100,7 @@ main() {
     echo ""
   fi
   echo "Config: ~/.config/rtvui/config.toml"
-  echo "More options: docs/INSTALL.md"
+  echo "Docs: docs/design.md (reference) · docs/tutorial.md (install & build)"
 }
 
 main "$@"

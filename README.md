@@ -10,7 +10,7 @@ Terminal file explorer in Rust — keyboard-driven, Finder-style split view, the
 curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/master/scripts/install.sh | bash
 ```
 
-**All platforms** — download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** or see **[docs/INSTALL.md](docs/INSTALL.md)** (manual tar/zip, Windows, build from source).
+**All platforms** — download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** or see **[tutorial.md](docs/tutorial.md)** Phase 10 (manual tar/zip, Windows, build from source).
 
 | Platform | What to download |
 |----------|------------------|
@@ -44,10 +44,9 @@ Config: `~/.config/rtvui/config.toml`
 
 ## Docs
 
-- **[Install guide](docs/INSTALL.md)** — users
-- **[Distribution](docs/DISTRIBUTION.md)** — maintainers (CI, releases)
+- **[design.md](docs/design.md)** — design, architecture, and implementation (phased)
+- **[tutorial.md](docs/tutorial.md)** — rebuild from scratch; ends with release & publishing
 - **[Project website](https://github.com/dfunani/r_tvui_web)** — `r_tvui_web` Next.js site
-- [Design spec](docs/DESIGN_SPEC.md) · [Review](docs/REVIEW.md) · [Planning archive](docs/planning/)
 
 ## License
 
