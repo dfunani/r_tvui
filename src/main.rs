@@ -22,7 +22,6 @@ use std::time::Duration;
 struct App {
     current_working_directory: PathBuf,
     artifacts: Vec<Artifact>,
-    selection: usize,
     scroll_state: ListState,
 }
 
@@ -36,7 +35,6 @@ impl App {
         let current_working_directory = current_dir()?;
         let artifacts = get_directory_entries(&current_working_directory)?;
         let mut scroll_state = ListState::default();
-        let selection = 0;
         let mut scroll_index = None;
 
         if !artifacts.is_empty() {
@@ -47,22 +45,23 @@ impl App {
         Ok(Self {
             current_working_directory,
             artifacts,
-            selection,
             scroll_state,
         })
     }
 
     pub fn reload(&mut self) -> Result<()> {
         let artifacts = get_directory_entries(&self.current_working_directory)?;
+        self.artifacts = artifacts;
 
-        if self.selection >= artifacts.len() {
-            self.selection = artifacts.len().saturating_sub(1);
-        }
+        let Some(selection) = self.scroll_state.selected() else {
+            return Ok(());
+        };
 
-        if artifacts.is_empty() {
+        if self.artifacts.is_empty() {
             self.scroll_state.select(None);
         } else {
-            self.scroll_state.select(Some(self.selection));
+            let min_selection = selection.min(self.artifacts.len() - 1);
+            self.scroll_state.select(Some(min_selection));
         };
         Ok(())
     }
@@ -84,7 +83,7 @@ struct Artifact {
 
 fn main() -> Result<()> {
     global_exception_handler();
-    let _ = ratatui::run(app_loop);
+    ratatui::run(app_loop)?;
 
     Ok(())
 }
@@ -193,7 +192,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
 }
 
 fn handle_key_events(app: &mut App) -> Result<AppState> {
-    let mut check_event_status = event::poll(Duration::from_millis(250))?;
+    let check_event_status = event::poll(Duration::from_millis(250))?;
     if !check_event_status {
         return Ok(AppState::ACTIVE);
     }
@@ -224,20 +223,26 @@ fn handle_key_events(app: &mut App) -> Result<AppState> {
 fn handle_key_event(app: &mut App, event_key: KeyEvent) -> Result<()> {
     match event_key.code {
         KeyCode::Char('w') | KeyCode::Up => {
-            if app.selection > 0 {
-                app.selection -= 1;
-                app.scroll_state.select(Some(app.selection));
+            let Some(mut selection) = app.scroll_state.selected() else {
+                return Ok(());
+            };
+            if selection > 0 {
+                selection -= 1;
             }
+            app.scroll_state.select(Some(selection));
         }
         KeyCode::Char('s') | KeyCode::Down => {
-            if app.selection + 1 < app.artifacts.len() {
-                app.selection += 1;
-                app.scroll_state.select(Some(app.selection));
+            let Some(mut selection) = app.scroll_state.selected() else {
+                return Ok(());
+            };
+            if selection + 1 < app.artifacts.len() {
+                selection += 1;
             }
+            app.scroll_state.select(Some(selection));
         }
         KeyCode::Char('a') | KeyCode::Left => {
             if app.current_working_directory.pop() {
-                app.selection = 0;
+                app.scroll_state.select(Some(0));
                 app.reload()?;
             }
         }
@@ -250,7 +255,7 @@ fn handle_key_event(app: &mut App, event_key: KeyEvent) -> Result<()> {
             };
             if artifact.artifact_type == ArtifactType::Directory {
                 app.current_working_directory.push(&artifact.name);
-                app.selection = 0;
+                app.scroll_state.select(Some(0));
                 app.reload()?;
             }
         }
