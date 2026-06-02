@@ -148,12 +148,20 @@ fn get_artifact_type(entry: &DirEntry) -> Result<ArtifactType> {
     Ok(ArtifactType::Other)
 }
 
-fn sort_directory_function<'a, 'b>(a: &'a Artifact, b: &'b Artifact) -> Ordering {
-    match (&a.artifact_type, &b.artifact_type) {
-        (ArtifactType::Directory, ArtifactType::File) => Ordering::Less,
-        (ArtifactType::File, ArtifactType::Directory) => Ordering::Greater,
-        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+/// Sort key rank: directories first, then symlinks, files, other; names within each group.
+fn artifact_sort_rank(artifact_type: &ArtifactType) -> u8 {
+    match artifact_type {
+        ArtifactType::Directory => 0,
+        ArtifactType::Symlink => 1,
+        ArtifactType::File => 2,
+        ArtifactType::Other => 3,
     }
+}
+
+fn sort_directory_function(a: &Artifact, b: &Artifact) -> Ordering {
+    artifact_sort_rank(&a.artifact_type)
+        .cmp(&artifact_sort_rank(&b.artifact_type))
+        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
 }
 
 fn get_title_block<'a>(title: &'a String) -> Block<'a> {
