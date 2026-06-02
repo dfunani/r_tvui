@@ -230,7 +230,7 @@ fn handle_key_events(app: &mut App) -> Result<AppState> {
 
 fn handle_key_event(app: &mut App, event_key: KeyEvent) -> Result<()> {
     match event_key.code {
-        KeyCode::Char('w') | KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('w') => {
             let Some(mut selection) = app.scroll_state.selected() else {
                 return Ok(());
             };
@@ -239,7 +239,7 @@ fn handle_key_event(app: &mut App, event_key: KeyEvent) -> Result<()> {
             }
             app.scroll_state.select(Some(selection));
         }
-        KeyCode::Char('s') | KeyCode::Down => {
+        KeyCode::Down | KeyCode::Char('s') => {
             let Some(mut selection) = app.scroll_state.selected() else {
                 return Ok(());
             };
@@ -248,13 +248,13 @@ fn handle_key_event(app: &mut App, event_key: KeyEvent) -> Result<()> {
             }
             app.scroll_state.select(Some(selection));
         }
-        KeyCode::Char('a') | KeyCode::Left => {
+        KeyCode::Left | KeyCode::Char('a') => {
             if app.current_working_directory.pop() {
                 app.scroll_state.select(Some(0));
                 app.reload()?;
             }
         }
-        KeyCode::Char('d') | KeyCode::Right | KeyCode::Enter => {
+        KeyCode::Right | KeyCode::Char('d') | KeyCode::Enter => {
             let Some(selection) = app.scroll_state.selected() else {
                 return Ok(());
             };
