@@ -9,7 +9,11 @@ all: fmt lint build
 prepare: check fmt lint
 
 ## build: Build the release binary using cargo
-build:
+build: prepare test
+	echo "Building release binary..."
+	cargo build
+
+release: prepare test
 	echo "Building release binary..."
 	cargo build --release
 
