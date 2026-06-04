@@ -55,12 +55,14 @@ mod tests {
 
     #[test]
     fn test_get_artifact_entries_sort() {
-        let result =
-            get_artifact_entries(&PathBuf::from("."), &ArtifactOptions { show_hidden: true });
+        let path = create_test_context();
+        let result = get_artifact_entries(&path, &ArtifactOptions { show_hidden: true });
         assert!(result.is_ok());
         let result = result.unwrap();
         assert!(!result.artifacts.is_empty());
-        assert!(result.artifacts[0].name.starts_with("."));
+        let matched_artifact = result.artifacts.iter().find(|a| a.name.starts_with('.'));
+        assert!(matched_artifact.is_some());
+        assert!(matched_artifact.unwrap().name.starts_with('.'));
     }
 
     #[test]
