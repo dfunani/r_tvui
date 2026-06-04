@@ -29,12 +29,13 @@ pub struct ArtifactOptions {
     pub show_hidden: bool,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct ArtifactListResult {
     pub artifacts: Vec<Artifact>,
     pub partial: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Artifact {
     pub name: String,
     pub path: PathBuf,

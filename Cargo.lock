@@ -1237,6 +1237,7 @@ dependencies = [
  "dirs",
  "ratatui",
  "serde",
+ "tempfile",
  "tokio",
  "toml",
 ]

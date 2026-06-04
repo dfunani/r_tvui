@@ -1,20 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AppConfig {
     pub theme: Themes,
     pub settings: Settings,
     pub cache: CacheConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub sort: Sort,
     pub enable_trash: bool,
     pub preview: Preview,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CacheConfig {
     pub bookmarks: Vec<String>,
 }
@@ -39,7 +39,7 @@ impl Default for Settings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub enum Themes {
     #[default]
     Forest,
@@ -48,7 +48,7 @@ pub enum Themes {
     Mono,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub enum Sort {
     #[default]
     Name,
@@ -56,7 +56,7 @@ pub enum Sort {
     Modified,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub enum Preview {
     #[default]
     OnMove,

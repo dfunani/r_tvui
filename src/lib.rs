@@ -11,3 +11,8 @@ pub mod config {
 }
 
 pub mod os;
+
+#[cfg(test)]
+pub mod tests {
+    pub mod test_app;
+}

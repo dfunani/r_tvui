@@ -20,7 +20,9 @@ pub struct App {
     pub config: AppConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum AppState {
+    #[default]
     Active,
     Filter,
     GoTo,
@@ -44,12 +46,12 @@ impl App {
 
         Ok(Self {
             current_working_directory,
-            artifacts,
+            artifacts: artifacts.clone(),
             scroll_state,
             status_message: String::new(),
             state: AppState::Active,
             filter_input: String::new(),
-            entries_cache: Vec::new(),
+            entries_cache: artifacts.clone(),
             entries_filtered: Vec::new(),
             config,
         })

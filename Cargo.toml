@@ -17,3 +17,4 @@ serde = { version = "1.0.228", features = ["derive"] }
 dirs = "6.0.0"
 toml = "1.1.2"
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "sync", "fs", "time"] }
+tempfile = "3.10.0"
