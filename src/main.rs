@@ -1,108 +1,29 @@
-use crossterm::event;
-use crossterm::event::Event;
-use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
-use crossterm::event::KeyEventKind;
-use ratatui::DefaultTerminal;
-use ratatui::Frame;
-use ratatui::style::Color;
-use ratatui::style::Modifier;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
-use ratatui::widgets::Borders;
-use ratatui::widgets::List;
-use ratatui::widgets::ListItem;
-use ratatui::widgets::ListState;
-use std::cmp::Ordering;
-use std::env::current_dir;
-use std::fs::{DirEntry, read_dir};
-use std::io::Result;
-use std::path::PathBuf;
-use std::time::Duration;
-struct App {
-    current_working_directory: PathBuf,
-    artifacts: Vec<Artifact>,
-    scroll_state: ListState,
+use clap::Parser;
+use config::{Config, ConfigError, File};
+use r_tvui::{config::app::AppConfig, events::app::app_loop, models::app::App};
+use std::{
+    env::current_dir,
+    error::Error,
+    fs::{self, OpenOptions},
+    io::{Result as IoResult, Write},
+    path::PathBuf,
+};
+
+#[derive(Parser)]
+#[command(name = "r_tvui", version, about = "Terminal UI file explorer")]
+struct Cli {
+    #[arg(value_name = "PATH")]
+    path: Option<PathBuf>,
 }
 
-enum AppState {
-    ACTIVE,
-    Quit,
-}
-
-impl App {
-    pub fn new() -> Result<Self> {
-        let current_working_directory = current_dir()?;
-        let artifacts = get_directory_entries(&current_working_directory)?;
-        let mut scroll_state = ListState::default();
-        let mut scroll_index = None;
-
-        if !artifacts.is_empty() {
-            scroll_index = Some(0);
-        }
-        scroll_state.select(scroll_index);
-
-        Ok(Self {
-            current_working_directory,
-            artifacts,
-            scroll_state,
-        })
-    }
-
-    pub fn reload(&mut self) -> Result<()> {
-        let artifacts = get_directory_entries(&self.current_working_directory)?;
-        self.artifacts = artifacts;
-
-        let Some(selection) = self.scroll_state.selected() else {
-            return Ok(());
-        };
-
-        if self.artifacts.is_empty() {
-            self.scroll_state.select(None);
-        } else {
-            let min_selection = selection.min(self.artifacts.len() - 1);
-            self.scroll_state.select(Some(min_selection));
-        };
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-enum ArtifactType {
-    Directory,
-    File,
-    Symlink,
-    Other,
-}
-
-#[derive(Debug, Clone)]
-struct Artifact {
-    name: String,
-    artifact_type: ArtifactType,
-}
-
-fn main() -> Result<()> {
+fn main() -> IoResult<()> {
     global_exception_handler();
-    ratatui::run(app_loop)?;
+    let cli = Cli::parse();
+    let path = get_start_path(cli.path)?;
+    let config = load_config().unwrap_or_else(|_| AppConfig::default());
+    let mut app = App::new(path, config)?;
+    ratatui::run(|terminal| app_loop(terminal, &mut app))?;
 
-    Ok(())
-}
-fn app_loop(terminal: &mut DefaultTerminal) -> Result<()> {
-    // 1. read_dir current directory into Vec<(name, is_dir)>
-    let mut app = App::new()?;
-
-    // 2. loop: draw list with selected index highlighted
-    loop {
-        terminal.draw(|frame| draw(frame, &mut app))?;
-
-        match handle_key_events(&mut app)? {
-            AppState::Quit => break,
-            _ => {}
-        }
-    }
-    // loop {
-    // }
-    // 3. poll key: j/k move, l enter dir, h parent, q break
     Ok(())
 }
 
@@ -114,160 +35,44 @@ fn global_exception_handler() {
     }));
 }
 
-fn get_directory_entries(path: &PathBuf) -> Result<Vec<Artifact>> {
-    let mut entries = Vec::new();
+fn get_start_path(path: Option<PathBuf>) -> IoResult<PathBuf> {
+    let start_path = path.unwrap_or_else(|| current_dir().unwrap());
 
-    for entry in read_dir(path)? {
-        let entry = entry?;
-        let name = entry.file_name().to_string_lossy().to_string();
-
-        let artifact_type = get_artifact_type(&entry)?;
-
-        entries.push(Artifact {
-            name,
-            artifact_type,
-        });
-    }
-
-    entries.sort_by(sort_directory_function);
-    Ok(entries)
-}
-
-fn get_artifact_type(entry: &DirEntry) -> Result<ArtifactType> {
-    let entry_type = entry.file_type()?;
-
-    if entry_type.is_dir() {
-        return Ok(ArtifactType::Directory);
-    }
-    if entry_type.is_file() {
-        return Ok(ArtifactType::File);
-    }
-    if entry_type.is_symlink() {
-        return Ok(ArtifactType::Symlink);
-    }
-    Ok(ArtifactType::Other)
-}
-
-/// Sort key rank: directories first, then symlinks, files, other; names within each group.
-fn artifact_sort_rank(artifact_type: &ArtifactType) -> u8 {
-    match artifact_type {
-        ArtifactType::Directory => 0,
-        ArtifactType::Symlink => 1,
-        ArtifactType::File => 2,
-        ArtifactType::Other => 3,
+    if start_path.is_dir() {
+        Ok(start_path.canonicalize().unwrap_or(start_path))
+    } else {
+        std::env::current_dir()
     }
 }
 
-fn sort_directory_function(a: &Artifact, b: &Artifact) -> Ordering {
-    artifact_sort_rank(&a.artifact_type)
-        .cmp(&artifact_sort_rank(&b.artifact_type))
-        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-}
+fn load_config() -> Result<AppConfig, ConfigError> {
+    let config_path = dirs::home_dir()
+        .map(|h| h.join(".r_tvui/.config.toml"))
+        .unwrap_or_else(|| PathBuf::from(".config.toml"));
 
-fn get_title_block<'a>(title: &'a String) -> Block<'a> {
-    let title = format!(" {}", title);
-    Block::default().title(title).borders(Borders::ALL)
-}
-
-fn get_list_block<'a>(entries: &'a Vec<ListItem>, block: &'a Block) -> List<'a> {
-    List::new(entries.clone())
-        .block(block.clone())
-        .highlight_style(
-            Style::new()
-                .add_modifier(Modifier::REVERSED)
-                .fg(Color::Cyan),
-        )
-}
-
-fn draw(frame: &mut Frame, app: &mut App) {
-    let entries: Vec<ListItem> = app
-        .artifacts
-        .iter()
-        .map(|entry| {
-            let label = &entry.artifact_type;
-            match label {
-                ArtifactType::Directory => format!("{}/", entry.name),
-                _ => entry.name.clone(),
-            }
-        })
-        .map(ListItem::from)
-        .collect::<Vec<ListItem>>();
-
-    let title = app.current_working_directory.display().to_string();
-    let block = get_title_block(&title);
-    let list = get_list_block(&entries, &block);
-    frame.render_stateful_widget(list, frame.area(), &mut app.scroll_state)
-}
-
-fn handle_key_events(app: &mut App) -> Result<AppState> {
-    let check_event_status = event::poll(Duration::from_millis(250))?;
-    if !check_event_status {
-        return Ok(AppState::ACTIVE);
+    if !config_path.exists() {
+        let config = AppConfig::default();
+        save_config(&config, &config_path).unwrap();
+        return Ok(config);
     }
 
-    if check_event_status {
-        let Event::Key(key) = event::read()? else {
-            return Ok(AppState::ACTIVE);
-        };
-
-        if key.kind != KeyEventKind::Press {
-            return Ok(AppState::ACTIVE);
-        }
-
-        match key.code {
-            KeyCode::Char('q') => {
-                return Ok(AppState::Quit);
-            }
-            KeyCode::Esc => {
-                return Ok(AppState::Quit);
-            }
-            _ => {}
-        }
-        handle_key_event(app, key)?;
-    }
-    Ok(AppState::ACTIVE)
+    let builder = Config::builder()
+        .add_source(File::from(config_path))
+        .build()?;
+    let app_config = builder.try_deserialize::<AppConfig>()?;
+    Ok(app_config)
 }
 
-fn handle_key_event(app: &mut App, event_key: KeyEvent) -> Result<()> {
-    match event_key.code {
-        KeyCode::Up | KeyCode::Char('w') => {
-            let Some(mut selection) = app.scroll_state.selected() else {
-                return Ok(());
-            };
-            if selection > 0 {
-                selection -= 1;
-            }
-            app.scroll_state.select(Some(selection));
-        }
-        KeyCode::Down | KeyCode::Char('s') => {
-            let Some(mut selection) = app.scroll_state.selected() else {
-                return Ok(());
-            };
-            if selection + 1 < app.artifacts.len() {
-                selection += 1;
-            }
-            app.scroll_state.select(Some(selection));
-        }
-        KeyCode::Left | KeyCode::Char('a') => {
-            if app.current_working_directory.pop() {
-                app.scroll_state.select(Some(0));
-                app.reload()?;
-            }
-        }
-        KeyCode::Right | KeyCode::Char('d') | KeyCode::Enter => {
-            let Some(selection) = app.scroll_state.selected() else {
-                return Ok(());
-            };
-            let Some(artifact) = app.artifacts.get(selection) else {
-                return Ok(());
-            };
-            if artifact.artifact_type == ArtifactType::Directory {
-                app.current_working_directory.push(&artifact.name);
-                app.scroll_state.select(Some(0));
-                app.reload()?;
-            }
-        }
-        _ => {}
+fn save_config(app_config: &AppConfig, path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    let content = toml::to_string_pretty(app_config)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
     }
+    let mut toml_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)?;
+    toml_file.write_all(content.as_bytes())?;
     Ok(())
 }
