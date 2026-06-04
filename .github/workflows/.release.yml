@@ -1,0 +1,90 @@
+# name: Release
+
+# on:
+#   push:
+#     tags: ["v*"]
+
+# permissions:
+#   contents: write
+
+# jobs:
+#   build:
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - target: aarch64-apple-darwin
+#             os: macos-latest
+#             archive: tar.gz
+#           - target: x86_64-apple-darwin
+#             os: macos-latest
+#             archive: tar.gz
+#           - target: x86_64-unknown-linux-gnu
+#             os: ubuntu-latest
+#             archive: tar.gz
+#           - target: aarch64-unknown-linux-gnu
+#             os: ubuntu-24.04-arm
+#             archive: tar.gz
+#           - target: x86_64-pc-windows-msvc
+#             os: windows-latest
+#             archive: zip
+#     runs-on: ${{ matrix.os }}
+#     steps:
+#       - uses: actions/checkout@v5
+
+#       - uses: dtolnay/rust-toolchain@stable
+#         with:
+#           targets: ${{ matrix.target }}
+
+#       - run: cargo build --release --target ${{ matrix.target }}
+
+#       - name: Package (Unix)
+#         if: matrix.archive == 'tar.gz'
+#         run: |
+#           VERSION="${GITHUB_REF_NAME#v}"
+#           mkdir -p dist
+#           cp "target/${{ matrix.target }}/release/r_tvui" dist/
+#           cp README.md dist/README.txt
+#           tar -czvf "r_tvui-${VERSION}-${{ matrix.target }}.tar.gz" -C dist .
+
+#       - name: Package (Windows)
+#         if: matrix.archive == 'zip'
+#         shell: pwsh
+#         run: |
+#           $version = $env:GITHUB_REF_NAME -replace '^v',''
+#           New-Item -ItemType Directory -Force -Path dist | Out-Null
+#           Copy-Item "target/${{ matrix.target }}/release/r_tvui.exe" dist/
+#           Copy-Item README.md dist/README.txt
+#           Compress-Archive -Path dist/* -DestinationPath "r_tvui-${version}-${{ matrix.target }}.zip"
+
+#       - uses: actions/upload-artifact@v6
+#         with:
+#           name: r_tvui-${{ matrix.target }}
+#           path: r_tvui-*.*
+
+#   release:
+#     needs: build
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/download-artifact@v6
+#         with:
+#           path: assets
+#           merge-multiple: true
+
+#       # Stable filenames for /releases/latest/download/... (used by website install scripts)
+#       - name: Add latest-download aliases
+#         run: |
+#           shopt -s globstar nullglob
+#           for f in assets/**/r_tvui-*; do
+#             base=$(basename "$f")
+#             alias=$(echo "$base" | sed -E 's/^r_tvui-[0-9]+\.[0-9]+\.[0-9]+-/r_tvui-/')
+#             if [ "$base" != "$alias" ]; then
+#               cp "$f" "assets/$alias"
+#             fi
+#           done
+#           ls -la assets/
+
+#       - uses: softprops/action-gh-release@v2
+#         with:
+#           files: assets/**/*
+#           generate_release_notes: true
