@@ -14,13 +14,20 @@ jobs:
       matrix:
         include:
           - command: fmt
+            needs: []
           - command: check
+            needs: [fmt]
           - command: lint
+            needs: [fmt, check]
           - command: clean
+            needs: [fmt, check, lint]
           - command: test
+            needs: [fmt, check, lint, clean]
           - command: build
+            needs: [fmt, check, lint, clean, test]
 
     runs-on: ubuntu-latest
+    needs: ${{ matrix.needs }}
     steps:
     - uses: actions/checkout@v5
     - uses: dtolnay/rust-toolchain@stable
