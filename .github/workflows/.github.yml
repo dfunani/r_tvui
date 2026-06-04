@@ -1,4 +1,4 @@
-name: Rust-Deployment-Build
+name: RTVUI-Deployment-Build
 
 on:
   push:
