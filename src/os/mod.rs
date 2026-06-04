@@ -12,7 +12,7 @@ pub fn open_file(path: PathBuf) -> Result<()> {
 
         #[cfg(target_os = "windows")]
         let _ = Command::new("cmd")
-            .args(["/C", "start", "", path.display().to_string()])
+            .args(["/C", "start", "", &path.display().to_string()])
             .spawn();
     });
     Ok(())
