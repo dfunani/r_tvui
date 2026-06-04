@@ -1,5 +1,6 @@
 # Variables
 BINARY_NAME=r_tvui
+TARGET ?= x86_64-unknown-linux-gnu
 
 .PHONY: all build run test check clean fmt lint help
 
@@ -15,7 +16,7 @@ build:
 
 release:
 	echo "Building release binary..."
-	cargo build --release
+	cargo build --release --target $(TARGET)
 
 ## run: Run the debug binary
 run: prepare
