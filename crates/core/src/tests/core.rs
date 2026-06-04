@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod test_core {
     use std::path::PathBuf;
 
     use crate::{ArtifactOptions, MAX_ENTRIES, utils::get_artifact_entries};

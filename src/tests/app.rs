@@ -1,6 +1,7 @@
+#[cfg(test)]
 mod test_app {
+    use std::fs;
     use std::path::PathBuf;
-    use std::{fs, time::SystemTime};
 
     use rtvui_core::ArtifactType;
 

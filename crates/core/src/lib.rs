@@ -1,7 +1,9 @@
 pub mod utils;
 
 #[cfg(test)]
-mod test;
+mod tests {
+    mod core;
+}
 
 use std::path::PathBuf;
 use std::time::SystemTime;
