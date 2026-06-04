@@ -1,186 +1,103 @@
-use rtvui_core::paths::{AbsolutePath, File};
+use ratatui::widgets::TableState;
+use rtvui_core::utils::get_artifact_entries;
+use rtvui_core::{Artifact, ArtifactOptions};
+use std::io::Result;
 use std::path::PathBuf;
 
-use filesystem::DirectorySortOrder;
+use crate::config::app::{AppConfig, Themes};
 
-use crate::models::mode::{AppMode, InputKind};
-use crate::theme::ThemeId;
-use crate::utils::browser::update_side_pane;
-use crate::utils::config::{self, AppConfig, SortPreference};
-use crate::utils::history::NavHistory;
-use crate::utils::listing::ListingService;
-use crate::utils::startup::resolve_start_path;
-
-#[derive(PartialEq, Debug, Clone, Copy, Default)]
-pub enum AppState {
-    Exit,
-    #[default]
-    Running,
-}
-
-#[derive(Debug, Clone)]
-pub enum SidePane {
-    Hidden,
-    Folder {
-        path: AbsolutePath,
-        entries: Vec<File>,
-    },
-    Preview {
-        title: String,
-        body: String,
-    },
-}
-
-impl SidePane {
-    pub fn is_active(&self) -> bool {
-        !matches!(self, Self::Hidden)
-    }
-}
-
-#[derive(Debug)]
 pub struct App {
-    pub cwd: AbsolutePath,
-    pub all_entries: Vec<File>,
-    pub entries: Vec<File>,
-    pub selected: usize,
-    pub show_hidden: bool,
-    pub sort: DirectorySortOrder,
-    pub sort_pref: SortPreference,
-    pub filter_query: String,
-    pub side_pane: SidePane,
-    pub status: String,
+    pub current_working_directory: PathBuf,
+    pub artifacts: Vec<Artifact>,
+    pub scroll_state: TableState,
+
+    pub status_message: String,
     pub state: AppState,
-    pub list_partial: bool,
-    pub theme: ThemeId,
-    pub mode: AppMode,
-    pub input_buffer: String,
-    pub history: NavHistory,
-    pub bookmarks: Vec<String>,
-    pub use_trash: bool,
-    pub preview_on_move: bool,
-    pub delete_target: Option<AbsolutePath>,
-    pub listing: ListingService,
-    pub browser_listing_gen: u64,
-    pub side_pane_gen: u64,
-    pub listing_loading: bool,
-    pub side_loading: bool,
+    pub filter_input: String,
+    pub entries_cache: Vec<Artifact>,
+    pub entries_filtered: Vec<Artifact>,
+
+    pub config: AppConfig,
 }
 
-impl Default for App {
-    fn default() -> Self {
-        Self::new(None)
-    }
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum AppState {
+    #[default]
+    Active,
+    Filter,
+    GoTo,
+    Confirm,
+    Help,
+    Quit,
 }
 
 impl App {
-    pub fn new(start_path: Option<PathBuf>) -> Self {
-        let cfg = AppConfig::load();
-        let (cwd, select_name, start_warning) = resolve_start_path(start_path);
+    pub fn new(path: PathBuf, config: AppConfig) -> Result<Self> {
+        let current_working_directory = path;
+        let result = get_artifact_entries(&current_working_directory, &ArtifactOptions::default())?;
+        let mut scroll_state = TableState::default();
+        let mut scroll_index = None;
+        let artifacts = result.artifacts;
 
-        let mut app = Self {
-            cwd,
-            all_entries: Vec::new(),
-            entries: Vec::new(),
-            selected: 0,
-            show_hidden: false,
-            sort: cfg.sort.into(),
-            sort_pref: cfg.sort,
-            filter_query: String::new(),
-            side_pane: SidePane::Hidden,
-            status: String::new(),
-            state: AppState::default(),
-            list_partial: false,
-            theme: cfg.theme,
-            mode: AppMode::Normal,
-            input_buffer: String::new(),
-            history: NavHistory::default(),
-            bookmarks: cfg.bookmarks,
-            use_trash: cfg.use_trash,
-            preview_on_move: cfg.preview_on_move,
-            delete_target: None,
-            listing: ListingService::new(),
-            browser_listing_gen: 0,
-            side_pane_gen: 0,
-            listing_loading: false,
-            side_loading: false,
+        if !artifacts.is_empty() {
+            scroll_index = Some(0);
+        }
+        scroll_state.select(scroll_index);
+
+        Ok(Self {
+            current_working_directory,
+            artifacts: artifacts.clone(),
+            scroll_state,
+            status_message: String::new(),
+            state: AppState::Active,
+            filter_input: String::new(),
+            entries_cache: artifacts.clone(),
+            entries_filtered: Vec::new(),
+            config,
+        })
+    }
+
+    pub fn reload(&mut self) -> Result<()> {
+        let artifacts =
+            get_artifact_entries(&self.current_working_directory, &ArtifactOptions::default())?;
+        self.artifacts = artifacts.artifacts;
+
+        let Some(selection) = self.scroll_state.selected() else {
+            return Ok(());
         };
-        crate::utils::navigation::refresh_listing_sync(&mut app);
 
-        if let Some(name) = select_name
-            && let Some(index) = app.entries.iter().position(|e| e.name == name)
-        {
-            app.selected = index;
-            if app.preview_on_move {
-                update_side_pane(&mut app);
-            }
-        }
-
-        if let Some(msg) = start_warning {
-            app.status = msg;
-        }
-
-        app
-    }
-
-    pub fn has_active_subquery(&self) -> bool {
-        !self.filter_query.is_empty()
-    }
-
-    pub fn clear_filter(&mut self) {
-        self.filter_query.clear();
-        crate::utils::navigation::apply_filter_to_app(self);
-        if self.preview_on_move {
-            update_side_pane(self);
-        }
-        self.status = "Filter cleared".to_string();
-    }
-
-    pub fn selected_entry(&self) -> Option<&File> {
-        self.entries.get(self.selected)
-    }
-
-    pub fn cycle_theme(&mut self) {
-        self.theme = self.theme.next();
-        self.status = format!("Theme: {} (saved)", self.theme.name());
-        let _ = config::save_theme(self.theme);
-    }
-
-    pub fn cycle_sort(&mut self) {
-        self.sort_pref = self.sort_pref.next();
-        self.sort = self.sort_pref.into();
-        self.status = format!("Sort: {}", self.sort_pref.label());
-        self.listing.clear_cache();
-        crate::utils::navigation::refresh_listing(self);
-    }
-
-    pub fn toggle_preview_on_move(&mut self) {
-        self.preview_on_move = !self.preview_on_move;
-        self.status = if self.preview_on_move {
-            "Preview on move: on".to_string()
+        if self.artifacts.is_empty() {
+            self.scroll_state.select(None);
         } else {
-            "Preview on move: off (press p)".to_string()
+            let min_selection = selection.min(self.artifacts.len() - 1);
+            self.scroll_state.select(Some(min_selection));
         };
+        Ok(())
     }
 
-    pub fn enter_input(&mut self, kind: InputKind, seed: String) {
-        self.mode = AppMode::Input(kind);
-        self.input_buffer = seed;
+    pub fn filter(&mut self) -> Result<()> {
+        self.entries_filtered = self
+            .entries_cache
+            .iter()
+            .filter(|artifact| {
+                artifact
+                    .name
+                    .to_lowercase()
+                    .contains(&self.filter_input.to_lowercase())
+            })
+            .cloned()
+            .collect();
+
+        self.scroll_state.select(Some(0));
+        Ok(())
     }
 
-    pub fn cancel_mode(&mut self) {
-        self.mode = AppMode::Normal;
-        self.input_buffer.clear();
-        self.delete_target = None;
-    }
-
-    pub fn persist_config(&self) {
-        let config = AppConfig {
-            theme: self.theme,
-            sort: self.sort_pref,
-            use_trash: self.use_trash,
-            preview_on_move: self.preview_on_move,
-            bookmarks: self.bookmarks.clone(),
-        };
-        let _ = config.save();
+    pub fn update_theme(&mut self) {
+        match self.config.theme {
+            Themes::Forest => self.config.theme = Themes::Midnight,
+            Themes::Midnight => self.config.theme = Themes::Solar,
+            Themes::Solar => self.config.theme = Themes::Mono,
+            Themes::Mono => self.config.theme = Themes::Forest,
+        }
     }
 }

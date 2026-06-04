@@ -1,17 +1,18 @@
-#[cfg(test)]
-mod tests;
-
-pub mod events;
-pub mod models;
-pub mod theme;
-pub mod utils;
-
+pub mod models {
+    pub mod app;
+    pub mod async_app;
+}
 pub mod ui;
 
-pub fn install_panic_hook() {
-    let original = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        ratatui::restore();
-        original(info);
-    }));
+pub mod events;
+
+pub mod config {
+    pub mod app;
+}
+
+pub mod os;
+
+#[cfg(test)]
+pub mod tests {
+    pub mod app;
 }
