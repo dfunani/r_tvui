@@ -15,8 +15,8 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-    - name: Build
-      run: make build
+    - name: Check
+      run: make check
   fmt:
     runs-on: ubuntu-latest
     needs: [check]
@@ -26,8 +26,9 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-    - name: Check
-      run: make check
+    - name: Format
+      run: make fmt
+  
   lint:
     runs-on: ubuntu-latest
     needs: [check, fmt]
@@ -37,8 +38,9 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-    - name: Clean
-      run: make clean
+    - name: Lint
+      run: make lint
+  
   clean:
     runs-on: ubuntu-latest
     needs: [check, fmt, lint]
@@ -48,8 +50,9 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-    - name: Fmt
-      run: make fmt
+    - name: Clean
+      run: make clean
+  
   test:
     runs-on: ubuntu-latest
     needs: [check, fmt, lint, clean]
@@ -59,8 +62,8 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-    - name: Lint
-      run: make lint
+    - name: Test
+      run: make test
   
   build:
     runs-on: ubuntu-latest
