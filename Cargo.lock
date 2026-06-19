@@ -305,7 +305,10 @@ dependencies = [
 name = "core"
 version = "0.1.0"
 dependencies = [
+ "crossterm",
+ "ratatui",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -1237,6 +1240,7 @@ dependencies = [
  "dirs",
  "ratatui",
  "serde",
+ "shellexpand",
  "tempfile",
  "tokio",
  "toml",
@@ -1534,6 +1538,15 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "shellexpand"
+version = "3.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32824fab5e16e6c4d86dc1ba84489390419a39f97699852b66480bb87d297ed8"
+dependencies = [
+ "dirs",
 ]
 
 [[package]]

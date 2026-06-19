@@ -1,5 +1,5 @@
+pub mod errors;
 pub mod utils;
-
 #[cfg(test)]
 mod tests {
     mod core;
@@ -26,12 +26,21 @@ pub enum ArtifactType {
     Other,
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ArtifactSort {
+    #[default]
+    Name,
+    Size,
+    Modified,
+}
+
 #[derive(Default)]
 pub struct ArtifactOptions {
     pub show_hidden: bool,
+    pub sort: ArtifactSort,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ArtifactListResult {
     pub artifacts: Vec<Artifact>,
     pub partial: bool,

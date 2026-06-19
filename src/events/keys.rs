@@ -1,7 +1,8 @@
 use super::key::{
-    handle_key_event_confirm_mode, handle_key_event_filter_mode, handle_key_event_go_to_mode,
-    handle_key_event_help_mode, handle_key_event_normal_mode,
+    handle_key_event_confirm_mode, handle_key_event_filter_input, handle_key_event_help_mode,
+    handle_key_event_normal_mode, handle_key_event_rename_input,
 };
+use crate::events::key::handle_key_event_go_to_mode;
 use crate::models::app::App;
 use crate::models::app::AppState;
 use crossterm::event::KeyCode;
@@ -11,17 +12,33 @@ use std::io::Result;
 pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
         KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
-        KeyCode::Char('/') => Ok(AppState::Filter),
+        KeyCode::Char('/') => {
+            app.filter_input.clear();
+            app.filter()?;
+            Ok(AppState::Filter)
+        }
         KeyCode::Char('g') => Ok(AppState::GoTo),
         KeyCode::Char('?') => Ok(AppState::Help),
+        KeyCode::F(2) => Ok(app.begin_rename()),
         _ => handle_key_event_normal_mode(app, event_key),
+    }
+}
+
+pub fn handle_key_events_rename_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
+    match event_key.code {
+        KeyCode::Esc => Ok(AppState::Active),
+        _ => handle_key_event_rename_input(app, event_key),
     }
 }
 
 pub fn handle_key_events_filter_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
-        _ => handle_key_event_filter_mode(app, event_key),
+        KeyCode::Esc => {
+            app.filter_input.clear();
+            app.filter()?;
+            Ok(AppState::Active)
+        }
+        _ => handle_key_event_filter_input(app, event_key),
     }
 }
 

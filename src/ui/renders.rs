@@ -1,10 +1,9 @@
 use super::layout::{get_layout, get_path_bar, get_preview_layout, get_status_bar};
-use super::views::{get_artifact_display, get_preview_display};
+use super::views::{get_artifact_display, get_preview_text};
 use crate::models::app::App;
+use crate::models::previewer::Previewer;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use rtvui_core::utils::get_artifact_entries;
-use rtvui_core::{ArtifactOptions, ArtifactType};
 
 pub fn render(frame: &mut Frame, app: &mut App) {
     let layout = get_layout();
@@ -14,8 +13,9 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     let preview_segments = preview_layout.split(segments[1]);
 
     frame.render_widget(get_path_bar(app), segments[0]);
+
     frame.render_stateful_widget(
-        get_artifact_display(&app.artifacts, " Files ".to_string()),
+        get_artifact_display(&app.entries_filtered, " Files ".to_string(), app.palette()),
         preview_segments[0],
         &mut app.scroll_state,
     );
@@ -25,36 +25,22 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 }
 
 fn handle_preview(frame: &mut Frame, app: &mut App, segment: Rect) {
-    let Some(selection) = app.scroll_state.selected() else {
-        return frame.render_widget(
+    match &app.previewer {
+        Previewer::Empty => frame.render_widget(
             get_artifact_display(
-                &app.artifacts,
+                &app.entries_filtered,
                 app.current_working_directory.display().to_string(),
+                app.palette(),
             ),
             segment,
-        );
-    };
-
-    let Some(artifact) = app.artifacts.get(selection) else {
-        return frame.render_widget(
-            get_artifact_display(
-                &app.artifacts,
-                app.current_working_directory.display().to_string(),
-            ),
+        ),
+        Previewer::Folder(folder) => frame.render_widget(
+            get_artifact_display(&folder.artifacts, folder.title.clone(), app.palette()),
             segment,
-        );
-    };
-
-    if artifact.artifact_type == ArtifactType::File {
-        frame.render_widget(
-            get_preview_display(artifact, artifact.name.to_string()),
+        ),
+        Previewer::Preview(preview) => frame.render_widget(
+            get_preview_text(&preview.body, preview.title.clone(), app.palette()),
             segment,
-        );
-    } else {
-        let artifacts = get_artifact_entries(&artifact.path, &ArtifactOptions::default()).unwrap();
-        frame.render_widget(
-            get_artifact_display(&artifacts.artifacts, artifact.name.to_string()),
-            segment,
-        );
+        ),
     }
 }
