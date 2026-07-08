@@ -26,13 +26,17 @@ run: prepare
 test: prepare
 	cargo test --workspace --all-targets
 
+# Pure I/O shells excluded from coverage: program bootstrap, the blocking
+# terminal event loop, and the OS process-spawn wrapper. See docs/test.md.
+COVERAGE_IGNORE = 'src/(main\.rs|events/app\.rs|os/mod\.rs)'
+
 ## coverage: Print a line/region coverage summary for the whole workspace
 coverage:
-	cargo llvm-cov --workspace --summary-only
+	cargo llvm-cov --workspace --summary-only --ignore-filename-regex $(COVERAGE_IGNORE)
 
 ## coverage-html: Generate an HTML coverage report and open it
 coverage-html:
-	cargo llvm-cov --workspace --html --open
+	cargo llvm-cov --workspace --html --open --ignore-filename-regex $(COVERAGE_IGNORE)
 
 ## check: Fast check to verify code compiles without generating binaries
 check:

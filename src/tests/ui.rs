@@ -95,11 +95,29 @@ mod test_ui {
     }
 
     #[test]
+    fn renders_directory_with_trailing_slash() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("subdir")).unwrap();
+        let mut app = App::new(dir.path().to_path_buf(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+        let text = draw(&mut app);
+        assert!(text.contains("subdir/"));
+    }
+
+    #[test]
     fn renders_rename_prompt() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
         app.state = AppState::Rename;
         app.rename_input = "a.txt".to_string();
         let text = draw(&mut app);
         assert!(text.contains("rename"));
+    }
+
+    #[test]
+    fn renders_status_message_in_bar() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.status_message = "Renamed to b.txt".to_string();
+        let text = draw(&mut app);
+        assert!(text.contains("Renamed to b.txt"));
     }
 }

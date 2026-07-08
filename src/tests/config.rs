@@ -3,7 +3,8 @@ mod test_config {
     use ratatui::style::Color;
 
     use crate::config::app::{AppConfig, Preview, Sort, Themes};
-    use crate::config::utils::{get_config_path, save_config};
+    use crate::config::utils::{get_config_path, load_config, save_config};
+    use crate::tests::support::with_temp_home;
 
     // ---- defaults ----------------------------------------------------------
 
@@ -85,5 +86,22 @@ mod test_config {
     fn config_path_points_at_dotfile() {
         let path = get_config_path();
         assert!(path.to_string_lossy().ends_with(".config.toml"));
+    }
+
+    #[test]
+    fn load_config_creates_default_then_reads_it() {
+        with_temp_home(|home| {
+            let config_file = home.join(".r_tvui/.config.toml");
+            assert!(!config_file.exists());
+
+            // First load: no file yet -> writes a default and returns it.
+            let created = load_config().unwrap();
+            assert_eq!(created, AppConfig::default());
+            assert!(config_file.exists());
+
+            // Second load: the file exists -> parsed back from disk.
+            let loaded = load_config().unwrap();
+            assert_eq!(loaded, AppConfig::default());
+        });
     }
 }

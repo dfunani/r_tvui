@@ -9,6 +9,22 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use std::io::Result;
 
+/// Route a key press to the handler for the current state and store the
+/// resulting state on the app. Extracted from the blocking run loop so the
+/// dispatch table can be exercised in tests.
+pub fn dispatch_key(app: &mut App, event_key: KeyEvent) -> Result<()> {
+    app.state = match app.state {
+        AppState::Active => handle_key_events_normal_mode(app, event_key)?,
+        AppState::Filter => handle_key_events_filter_mode(app, event_key)?,
+        AppState::Rename => handle_key_events_rename_mode(app, event_key)?,
+        AppState::GoTo => handle_key_events_go_to_mode(app, event_key)?,
+        AppState::Confirm => handle_key_events_confirm_mode(app, event_key)?,
+        AppState::Help => handle_key_events_help_mode(app, event_key)?,
+        AppState::Quit => AppState::Quit,
+    };
+    Ok(())
+}
+
 pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
         KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),

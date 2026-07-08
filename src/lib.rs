@@ -21,8 +21,11 @@ pub mod os;
 
 #[cfg(test)]
 pub mod tests {
+    pub mod support;
+
     pub mod app;
     pub mod cli;
+    pub mod client;
     pub mod config;
     pub mod events;
     pub mod previewer;

@@ -8,7 +8,7 @@ mod test_app {
     use crate::config::app::{AppConfig, Preview, Sort, Themes};
     use crate::models::app::{App, AppState};
     use crate::models::client::AsyncEvents;
-    use crate::models::previewer::{PreviewPreviewer, Previewer};
+    use crate::models::previewer::{FolderPreviewer, PreviewPreviewer, Previewer};
 
     // ---- helpers -----------------------------------------------------------
 
@@ -341,5 +341,77 @@ mod test_app {
         app.config.settings.preview = Preview::Never;
         app.request_previewer();
         assert!(matches!(app.previewer, Previewer::Empty));
+    }
+
+    #[test]
+    fn request_previewer_handles_files_and_folders() {
+        // File selection takes the text-preview branch.
+        let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.reload().unwrap();
+        app.request_previewer();
+
+        // Directory selection takes the folder-preview branch.
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("sub")).unwrap();
+        let mut dir_app = App::new(dir.path().to_path_buf(), AppConfig::default()).unwrap();
+        dir_app.reload().unwrap();
+        assert!(!dir_app.is_file_artifact());
+        dir_app.request_previewer();
+    }
+
+    #[test]
+    fn async_reload_uses_cache_when_present() {
+        let (_dir, mut app) = app_with_files(&[("real.txt", "a")]);
+        app.reload().unwrap();
+        let cwd = app.current_working_directory.clone();
+        app.cache.insert(
+            cwd,
+            ArtifactListResult { artifacts: vec![artifact("cached.txt")], partial: false },
+        );
+        app.async_reload().unwrap();
+        assert_eq!(app.artifacts.len(), 1);
+        assert_eq!(app.artifacts[0].name, "cached.txt");
+    }
+
+    #[test]
+    fn reload_error_clears_state_and_reports() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.reload().unwrap();
+        app.current_working_directory = PathBuf::from("/no/such/rtvui/dir");
+        app.reload().unwrap();
+        assert!(app.artifacts.is_empty());
+        assert!(app.entries_filtered.is_empty());
+        assert!(app.status_message.starts_with("Error:"));
+    }
+
+    #[test]
+    fn commit_rename_reports_fs_error() {
+        let (dir, mut app) = app_with_files(&[("old.txt", "a")]);
+        app.reload().unwrap();
+        // Delete the file on disk so the rename syscall fails even though the
+        // in-memory selection still points at it.
+        fs::remove_file(dir.path().join("old.txt")).unwrap();
+        app.rename_input = "new.txt".to_string();
+        app.commit_rename().unwrap();
+        assert!(app.status_message.contains("Rename failed"));
+    }
+
+    #[test]
+    fn apply_folder_preview_respects_generation() {
+        let mut app = App::new(PathBuf::from("."), AppConfig::default()).unwrap();
+        app.apply_async_event(AsyncEvents::FolderPreviewDone {
+            generation: app.previewer_generation,
+            previewer: Previewer::Folder(FolderPreviewer {
+                title: "folder".to_string(),
+                artifacts: vec![artifact("inner.txt")],
+            }),
+        });
+        assert!(matches!(app.previewer, Previewer::Folder(_)));
+
+        app.apply_async_event(AsyncEvents::FolderPreviewDone {
+            generation: app.previewer_generation + 25,
+            previewer: Previewer::Empty,
+        });
+        assert!(matches!(app.previewer, Previewer::Folder(_)));
     }
 }

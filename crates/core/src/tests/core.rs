@@ -204,6 +204,20 @@ mod test_core {
         assert_eq!(listing.artifacts[1].artifact_type, ArtifactType::Directory);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn symlink_type_is_detected() {
+        let dir = temp_dir();
+        fs::write(dir.path().join("target.txt"), "t").unwrap();
+        std::os::unix::fs::symlink(dir.path().join("target.txt"), dir.path().join("link.txt"))
+            .unwrap();
+        let listing =
+            get_artifact_entries(&dir.path().to_path_buf(), &options(true, ArtifactSort::Name))
+                .unwrap();
+        let link = listing.artifacts.iter().find(|a| a.name == "link.txt").unwrap();
+        assert_eq!(link.artifact_type, ArtifactType::Symlink);
+    }
+
     #[test]
     fn directory_type_is_detected() {
         let dir = temp_dir();
