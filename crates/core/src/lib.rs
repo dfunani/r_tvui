@@ -64,4 +64,60 @@ impl Artifact {
             n => format!("{:.1} GB", n as f64 / GIGABYTE as f64),
         }
     }
+
+    pub fn format_modified(&self) -> String {
+        let Some(modified) = self.modified else {
+            return "-".to_string();
+        };
+        let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) else {
+            return "-".to_string();
+        };
+        let secs = duration.as_secs() as i64;
+        // UTC YYYY-MM-DD HH:MM without extra deps.
+        const DAY: i64 = 86_400;
+        const HOUR: i64 = 3_600;
+        const MIN: i64 = 60;
+        let days = secs / DAY;
+        let mut year = 1970;
+        let mut rem_days = days;
+        loop {
+            let diy = if is_leap(year) { 366 } else { 365 };
+            if rem_days < diy {
+                break;
+            }
+            rem_days -= diy;
+            year += 1;
+        }
+        let month_lengths = [
+            31,
+            if is_leap(year) { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
+        let mut month = 1;
+        for length in month_lengths {
+            if rem_days < length {
+                break;
+            }
+            rem_days -= length;
+            month += 1;
+        }
+        let day = rem_days + 1;
+        let day_secs = secs % DAY;
+        let hour = day_secs / HOUR;
+        let minute = (day_secs % HOUR) / MIN;
+        format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}")
+    }
+}
+
+fn is_leap(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }

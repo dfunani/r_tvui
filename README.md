@@ -1,107 +1,108 @@
 # R-TVUI
 
-A keyboard-driven terminal file explorer in Rust. Browse directories in a split view: file list on the left, folder listing or text preview on the right.
+Keyboard-driven TUI file explorer in Rust. Browse with WASD or vim keys, preview before you open, mark and move files across a dual-cwd split — all in one binary.
 
-## Install (easiest)
+**Version:** 3.1.0 · **Release tag:** [`v3.1.0`](https://github.com/dfunani/r_tvui/releases)
 
-**macOS / Linux** — one command (installs to `~/.local/bin`):
+## Install
+
+**macOS / Linux** (to `~/.local/bin`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/master/scripts/install.sh | bash
 ```
 
-**All platforms** — download from **[GitHub Releases](https://github.com/dfunani/r_tvui/releases)** or see **[tutorial.md](docs/tutorial.md)** Phase 10 (manual tar/zip, Windows, build from source).
+**All platforms** — [GitHub Releases](https://github.com/dfunani/r_tvui/releases) or [docs/INSTALL.md](docs/INSTALL.md).
 
-| Platform | What to download |
-|----------|------------------|
-| macOS | `r_tvui-*-apple-darwin.tar.gz` |
-| Linux | `r_tvui-*-linux-gnu.tar.gz` |
-| Windows | `r_tvui-*-windows-msvc.zip` |
+| Platform | Asset |
+|----------|--------|
+| macOS Apple Silicon | `r_tvui-*-aarch64-apple-darwin.tar.gz` |
+| macOS Intel | `r_tvui-*-x86_64-apple-darwin.tar.gz` |
+| Linux x86_64 | `r_tvui-*-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `r_tvui-*-aarch64-unknown-linux-gnu.tar.gz` |
+| Windows | `r_tvui-*-x86_64-pc-windows-msvc.zip` |
 
 ## Run
 
 ```bash
-# current directory
-cargo run --release
-
-# specific path
-cargo run --release -- ~/Projects
-
-# installed binary
-r_tvui ~/Downloads
+r_tvui                 # cwd
+r_tvui ~/Projects      # path
 r_tvui --version
+
+# from source
+cargo run --release -- ~/Projects
 ```
 
-**Makefile shortcuts:** `make run`, `make test`, `make lint`, `make help`
+**Makefile:** `make run` · `make test` · `make lint` · `make help`
+
+## Features (shipped)
+
+- Async directory listing (50k cap + cache) with truncation / error status
+- Text preview (64 KiB) · image summary (size + PNG/GIF/JPEG dimensions)
+- Filter, sort, themes, hidden toggle, preview modes
+- Rename · delete (confirm + optional trash) · copy path(s) · bookmarks · history
+- Go-to path · help overlay · `$HOME` / filesystem root jumps
+- Multi-tab · dual-cwd split · marks / bulk delete · pane copy/move
+- Git porcelain status in the list · open with system app or `$EDITOR`
 
 ## UI layout
 
 | Area | Content |
 |------|---------|
-| Top | Current path |
-| Left (60%) | Files and folders (`NAME`, `SIZE`, `MODIFIED`) |
-| Right (40%) | Selected **folder** → children; selected **file** → text preview (first 64 KiB) |
-| Bottom | Status hints |
+| Top | Tab index + current path |
+| Left (60%) | Files: mark · git · name · size · modified |
+| Right (40%) | Folder children, text preview, or image summary |
+| Split (`\`) | Two tabs side by side (preview hidden) |
+| Bottom | Status / mode prompts |
 
-Directories are listed with a trailing `/`. The selected row is highlighted (reversed + cyan).
+Directories show a trailing `/`. Marked rows show `*`. Git status appears as `[M]` / `[?]` / … inside a work tree.
 
 ## Keybindings
 
-### Normal mode (default)
+### Normal mode
 
 | Key | Action |
 |-----|--------|
-| `w` or `↑` | Move selection up |
-| `s` or `↓` | Move selection down |
-| `a` or `←` | Parent directory (up one level) |
-| `d` | Enter selected **directory** |
-| `Enter` | Open selected item with the system default app (`open` / `xdg-open` / Windows `start`) |
-| `h` or `Home` | Jump to filesystem root (`/`) |
-| `G` | Jump to `$HOME` |
-| `/` | Filter listing by name (type to narrow; Esc clears) |
-| `g` | Go to path (type path, Enter jumps; `~` supported) |
-| `?` | Help overlay |
-| `t` | Cycle theme (saved) |
-| `o` | Cycle sort (name / size / modified) |
-| `.` | Toggle hidden files |
-| `P` | Cycle preview mode (`OnMove` / `Always` / `Never`) |
-| `r` | Refresh listing |
-| `F2` | Rename selected entry |
-| `x` or `Delete` | Delete selected entry (confirm; trash if enabled) |
-| `y` | Copy selected path to clipboard |
-| `b` | Bookmark current directory (up to 9) |
-| `1`–`9` | Jump to bookmark slot |
+| `w` / `k` / `↑` | Selection up |
+| `s` / `j` / `↓` | Selection down |
+| `a` / `←` | Parent directory |
+| `d` / `l` / `→` | Enter directory |
+| `Enter` | Open with system default app |
+| `e` | Open file in `$EDITOR` / `$VISUAL` |
+| `h` / `Home` | Filesystem root |
+| `G` | `$HOME` |
+| `/` | Filter |
+| `g` | Go to path (`~` ok) |
+| `?` | Help |
+| `t` · `o` · `.` · `P` · `r` | Theme · sort · hidden · preview · refresh |
+| `F2` | Rename |
+| `Space` / `U` | Mark / clear marks |
+| `x` / `Delete` | Delete selection or marked set (confirm) |
+| `y` | Copy path(s) to clipboard |
+| `b` / `1`–`9` | Bookmark / jump |
 | `u` / `i` | History back / forward |
-| `q` or `Esc` | Quit |
+| `N` / `W` | New / close tab |
+| `[` / `]` | Prev / next tab |
+| `\` | Toggle dual-cwd split |
+| `Tab` | Focus other split pane |
+| `c` / `m` | Copy / move into other pane (split on) |
+| `q` / `Esc` | Quit |
 
-> **Note:** `d` enters folders; `Enter` opens files (and other types) externally. Delete uses `x`/`Delete` because `d` is already enter-dir.
+`d`/`l` enter folders; `Enter` opens externally; `e` uses the editor. Delete is `x`/`Delete` (`d` is enter-dir). `h` is root, not vim-left.
 
-### Filter / go-to / rename / help / confirm modes
+### Modes
 
 | Mode | Cancel | Notes |
 |------|--------|-------|
-| Filter (`/`) | `Esc` | Typed chars (including `q`) filter the list |
-| Go to (`g`) | `Esc` | Enter jumps to an existing directory; `q` is path input |
+| Filter (`/`) | `Esc` | `q` is filter input |
+| Go to (`g`) | `Esc` | Enter jumps; `q` is path input |
 | Rename (`F2`) | `Esc` | Enter commits |
-| Help (`?`) | `Esc` or `q` | Overlay with key reference |
-| Confirm delete (`x`) | `Esc` / `q` / `n` | `y` deletes (trash or permanent per config) |
-
-### Planned (not bound yet)
-
-| Key | Planned action |
-|-----|----------------|
-| `j` / `k` | Alternative move up/down |
-| `l` | Enter directory |
+| Help (`?`) | `Esc` / `q` | Key reference overlay |
+| Confirm (`x`) | `Esc` / `q` / `n` | `y` confirms delete |
 
 ## Configuration
 
-On first run, config is created at:
-
-```text
-~/.r_tvui/.config.toml
-```
-
-Example fields (TOML):
+Created on first run at `~/.r_tvui/.config.toml`:
 
 | Field | Values | Default |
 |-------|--------|---------|
@@ -109,32 +110,36 @@ Example fields (TOML):
 | `settings.sort` | `Name`, `Size`, `Modified` | `Name` |
 | `settings.enable_trash` | `true` / `false` | `true` |
 | `settings.preview` | `OnMove`, `Always`, `Never` | `OnMove` |
+| `settings.show_hidden` | `true` / `false` | `false` |
 | `cache.bookmarks` | list of paths | `[]` |
 
-Theme, sort, hidden, trash, preview, and bookmarks persist from the UI. Set `enable_trash = false` for permanent deletes.
+Theme, sort, hidden, trash, preview, and bookmarks persist from the UI.
 
 ## Development
 
-Rust workspace:
-
 ```text
 r_tvui/          # TUI binary (src/)
-crates/core/     # Directory listing, Artifact types
+crates/core/     # Listing + Artifact types
 ```
 
 ```bash
-cargo check --workspace --all-targets
+make fmt && make lint && make test
+# or
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo clippy --workspace --all-targets
 ```
 
 ## Docs
 
-- **[design.md](docs/design.md)** — architecture and phased design
-- **[tutorial.md](docs/tutorial.md)** — rebuild from scratch; release & publishing
-- **[INSTALL.md](docs/INSTALL.md)** — install details
-- **[CHANGELOG.md](CHANGELOG.md)** — release notes
-- **[Project website](https://github.com/dfunani/r_tvui_web)** — Next.js site for the project
+| Doc | Role |
+|-----|------|
+| [design.md](docs/design.md) | **Closed** product design checklist (3.1.0) |
+| [review.md](docs/review.md) | **Closed** implementation audit checklist |
+| [INSTALL.md](docs/INSTALL.md) | Install details |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
+| [tutorial.md](docs/tutorial.md) | Rebuild-from-scratch curriculum |
+| [Website](https://github.com/dfunani/r_tvui_web) | Project site |
 
 ## License
 

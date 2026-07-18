@@ -103,7 +103,7 @@ pub enum Sort {
     Modified,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
 pub enum Preview {
     #[default]
     OnMove,

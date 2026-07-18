@@ -6,7 +6,7 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
 
-use crate::models::previewer::{FolderPreviewer, PreviewPreviewer, Previewer, read_text_prefix};
+use crate::models::previewer::{FolderPreviewer, PreviewPreviewer, Previewer, read_preview_body};
 
 const CHANNEL_CAPACITY: usize = 64;
 
@@ -84,7 +84,7 @@ impl AsyncEventClient {
     pub fn send_previewer(&self, path: PathBuf, title: String, generation: u64) {
         let sender = self.sender.clone();
         self.runtime.spawn(async move {
-            let body = spawn_blocking(move || read_text_prefix(&path))
+            let body = spawn_blocking(move || read_preview_body(&path))
                 .await
                 .ok()
                 .and_then(|result| result.ok())

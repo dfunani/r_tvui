@@ -1,6 +1,7 @@
 pub mod models {
     pub mod app;
     pub mod client;
+    pub mod pane;
     pub mod previewer;
 }
 pub mod ui;

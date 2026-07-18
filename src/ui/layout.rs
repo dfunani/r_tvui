@@ -6,21 +6,25 @@ use ratatui::widgets::Paragraph;
 
 pub fn get_path_bar<'a>(app: &'a App) -> Line<'a> {
     let accent = app.palette().accent;
+    let tab = format!("[{}/{}] ", app.active_tab + 1, app.tabs.len());
+    let split = if app.split_tab.is_some() { " ║ " } else { "" };
     Line::from(vec![
-        Span::raw(" path: "),
+        Span::styled(tab, Style::new().fg(accent)),
+        Span::raw("path: "),
         Span::styled(
-            app.current_working_directory.display().to_string(),
+            app.current_working_directory().display().to_string(),
             Style::new().add_modifier(Modifier::BOLD).fg(accent),
         ),
+        Span::raw(split),
     ])
 }
 
 pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
     let accent = app.palette().accent;
     let mut status_message =
-        String::from(" w/s · a/d · Enter · / g · y b · u/i · G · x · P · ? · q ");
+        String::from(" j/k · a/d · Space · N/W · \\ · Tab · e · y · x · P · ? · q ");
 
-    if app.listing_partial && app.state == AppState::Active && app.status_message.is_empty() {
+    if app.listing_partial() && app.state == AppState::Active && app.status_message.is_empty() {
         status_message = format!(" truncated (50k) · {status_message}");
     }
 
@@ -32,20 +36,24 @@ pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
     } else if app.state == AppState::GoTo {
         status_message = format!(" go to: {}▏ · Enter jump · Esc cancel ", app.goto_input);
     } else if app.state == AppState::Filter {
-        status_message = format!(" filter: {}▏ · Esc clear ", app.filter_input);
+        status_message = format!(" filter: {}▏ · Esc clear ", app.filter_input());
     } else if app.state == AppState::Help {
         status_message = String::from(" help · Esc/q close ");
     } else if app.state == AppState::Confirm {
-        let name = app
-            .selected_artifact()
-            .map(|artifact| artifact.name.as_str())
-            .unwrap_or("?");
+        let marked = app.pane().marked.len();
+        let label = if marked > 0 {
+            format!("{marked} marked item(s)")
+        } else {
+            app.selected_artifact()
+                .map(|artifact| artifact.name.clone())
+                .unwrap_or_else(|| "?".to_string())
+        };
         let via = if app.config.settings.enable_trash {
             "trash"
         } else {
             "permanently"
         };
-        status_message = format!(" delete {name} ({via})? · y confirm · n/Esc cancel ");
+        status_message = format!(" delete {label} ({via})? · y confirm · n/Esc cancel ");
     } else if !app.status_message.is_empty() {
         status_message = format!(" {} · {} ", app.status_message, status_message);
     }
@@ -94,4 +102,10 @@ pub fn get_preview_layout() -> Layout {
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+}
+
+pub fn get_split_layout() -> Layout {
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
 }
