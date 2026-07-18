@@ -266,7 +266,7 @@ mod test_events {
         assert_eq!(app.goto_input, "qx");
 
         assert_eq!(
-            handle_key_event_confirm_mode(&mut app, ch('q')).unwrap(),
+            handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(),
             AppState::Confirm
         );
         assert_eq!(handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(), AppState::Confirm);
@@ -322,6 +322,41 @@ mod test_events {
             AppState::Active
         );
         assert!(app.goto_input.is_empty());
+    }
+
+    #[test]
+    fn confirm_delete_mode_yes_and_cancel() {
+        let (dir, mut app) = app_with_files(&[("doomed.txt", "a"), ("keep.txt", "b")]);
+        app.config.settings.enable_trash = false;
+
+        let index = app
+            .entries_filtered
+            .iter()
+            .position(|a| a.name == "doomed.txt")
+            .unwrap();
+        app.scroll_state.select(Some(index));
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('x')).unwrap(),
+            AppState::Confirm
+        );
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('n')).unwrap(),
+            AppState::Active
+        );
+        assert!(dir.path().join("doomed.txt").exists());
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, code(KeyCode::Delete)).unwrap(),
+            AppState::Confirm
+        );
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('y')).unwrap(),
+            AppState::Active
+        );
+        assert!(!dir.path().join("doomed.txt").exists());
+        assert!(dir.path().join("keep.txt").exists());
+        assert!(app.status_message.contains("Deleted"));
     }
 
     // ---- option keys (persist to a sandboxed HOME) -------------------------

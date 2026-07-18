@@ -36,6 +36,8 @@ pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Resu
         KeyCode::Char('g') => Ok(app.begin_goto()),
         KeyCode::Char('?') => Ok(AppState::Help),
         KeyCode::F(2) => Ok(app.begin_rename()),
+        // `d` is enter-dir on WASD; use `x` / Delete for destructive delete.
+        KeyCode::Char('x') | KeyCode::Delete => Ok(app.begin_delete()),
         _ => handle_key_event_normal_mode(app, event_key),
     }
 }
@@ -71,7 +73,7 @@ pub fn handle_key_events_go_to_mode(app: &mut App, event_key: KeyEvent) -> Resul
 
 pub fn handle_key_events_confirm_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Active),
+        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('n') => Ok(AppState::Active),
         _ => handle_key_event_confirm_mode(app, event_key),
     }
 }

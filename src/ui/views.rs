@@ -8,7 +8,7 @@ use rtvui_core::Artifact;
 
 const TABLE_COLUMNS: [&str; 3] = ["NAME", "SIZE", "MODIFIED"];
 
-const HELP_LINES: [&str; 14] = [
+const HELP_LINES: [&str; 15] = [
     "Navigation",
     "  w/s or ↑↓     move selection",
     "  a/d or ←→     parent / enter directory",
@@ -17,12 +17,13 @@ const HELP_LINES: [&str; 14] = [
     "  g             go to path  ·  / filter  ·  r refresh",
     "",
     "Options",
-    "  t theme  ·  o sort  ·  . hidden  ·  F2 rename",
+    "  t theme  ·  o sort  ·  . hidden  ·  F2 rename  ·  x/Del delete",
     "",
     "Modes",
-    "  Esc           cancel filter / go-to / rename / help",
+    "  Esc           cancel filter / go-to / rename / help / delete",
     "  q             quit (normal) · close help",
     "  ?             this help",
+    "  y / n         confirm / cancel delete",
 ];
 
 pub fn get_preview_text<'a>(body: &str, title: String, palette: Palette) -> Paragraph<'a> {

@@ -297,6 +297,44 @@ mod test_app {
     }
 
     #[test]
+    fn begin_delete_requires_selection() {
+        let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.reload().unwrap();
+        assert_eq!(app.begin_delete(), AppState::Confirm);
+        app.scroll_state.select(None);
+        assert_eq!(app.begin_delete(), AppState::Active);
+    }
+
+    #[test]
+    fn commit_delete_removes_file_permanently() {
+        let (dir, mut app) = app_with_files(&[("gone.txt", "a")]);
+        app.reload().unwrap();
+        app.config.settings.enable_trash = false;
+        app.commit_delete().unwrap();
+        assert!(!dir.path().join("gone.txt").exists());
+        assert!(app.status_message.contains("Deleted"));
+    }
+
+    #[test]
+    fn commit_delete_removes_directory_permanently() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("subdir")).unwrap();
+        std::fs::write(dir.path().join("subdir").join("inner.txt"), "x").unwrap();
+        let mut app = App::new(dir.path().to_path_buf(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+        app.config.settings.enable_trash = false;
+        let index = app
+            .entries_filtered
+            .iter()
+            .position(|a| a.name == "subdir")
+            .unwrap();
+        app.scroll_state.select(Some(index));
+        app.commit_delete().unwrap();
+        assert!(!dir.path().join("subdir").exists());
+        assert!(app.status_message.contains("Deleted"));
+    }
+
+    #[test]
     fn commit_goto_jumps_to_directory() {
         let target = tempfile::tempdir().unwrap();
         let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);

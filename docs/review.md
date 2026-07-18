@@ -1,6 +1,6 @@
 # R-TVUI — Implementation Review
 
-**Reviewed:** Jul 18, 2026 (updated after H1–H3)  
+**Reviewed:** Jul 18, 2026 (updated after H1–H3 + M4-A)  
 **Package version:** 0.1.0 (`Cargo.toml`) — `design.md` aligned to 0.1.0; git tags already include `v2.0.0` / `v3.0.0` on *older* trees; `git describe` on HEAD ≈ `v1.1.2-6-g…`  
 **Scope:** Full re-review of master against `docs/design.md`, `docs/tutorial.md`, and prior `review.md` findings. Build/tests re-run this pass.
 
@@ -11,7 +11,7 @@
 - Re-read `src/`, `crates/core/`, `docs/design.md`, `docs/tutorial.md`, `README.md`, `makefile`, `.github/workflows/`, `scripts/install.sh`.
 - `cargo build --workspace` — **OK**
 - `cargo clippy --workspace --all-targets -- -D warnings` — **OK** (clean)
-- `cargo test --workspace --all-targets` — **OK** after H1–H3 (GoTo/Help + prior suite).
+- `cargo test --workspace --all-targets` — **OK** after H1–H3 + M4-A.
 
 Code-structure liberties (match vs if, WASD vs vim bindings, module shapes) are treated as fine where intent is preserved.
 
@@ -29,45 +29,43 @@ Code-structure liberties (match vs if, WASD vs vim bindings, module shapes) are 
 | M1 — async listing / cache / generation | **FIXED** | `AsyncEventClient` + generation guards + path cache. |
 | M2 — filter | **FIXED** | `/` live input, `entries_filtered`, Esc clears. |
 | M3 — themes | **FIXED** | `t` cycles + persists; `Palette` applied in UI. |
-| M5 — unused config fields | **MOSTLY DONE** | `sort` (`o`), `show_hidden` (`.`), `preview == Never` wired. Still unused: `enable_trash`, `bookmarks`. `Preview::Always` vs `OnMove` not differentiated; no `P` toggle. Leftovers belong with **M4**. |
+| M5 — unused config fields | **MOSTLY DONE** | `sort`, `show_hidden`, `preview==Never`, **`enable_trash`** wired. Still unused: `bookmarks`. No `P` preview cycle. |
 | N2 — Enter on a directory | **FIXED** | Enter opens files / enters dirs. |
 | P1 — side pane re-reads each frame | **FIXED** | Async + cached preview. |
 | P2 — `entries_cache` stale after `cd` | **FIXED** | Refreshed on async reload path. |
 | HIGH — Esc in GoTo/Help/Confirm quits | **FIXED** | Outer cancel → `Active`; GoTo uses Esc-only so `q` is path input. |
-| H3 — GoTo / Help stubs | **FIXED** | Path jump + help overlay ship; Confirm still for M4 delete. |
+| H3 — GoTo / Help stubs | **FIXED** | Path jump + help overlay ship. |
+| M4-A — delete / Confirm / trash | **FIXED** | `x`/`Delete` → Confirm; `y`/`n`; `trash` crate when `enable_trash`. |
 | D5 — `scripts/install.sh` missing | **FIXED** | Script present; still references missing `docs/INSTALL.md` and wrong config path in comments/errors. |
-| D7 — status hint garbled | **FIXED** | Status bar lists live bindings; mode prompts for filter/go-to/rename/help. |
-| D8 — README understates UX | **FIXED** | README key table updated for filter/go-to/help/theme/sort. |
+| D7 — status hint garbled | **FIXED** | Status bar lists live bindings; mode prompts including delete confirm. |
+| D8 — README understates UX | **FIXED** | README key table updated. |
 
 ---
 
 ## Resolved this round
 
-- **H1/H2** — mode-exit contract + green tests.
-- **H3** — GoTo path input/jump (`~`, relative, absolute); Help overlay; status prompts; tests.
-- **design.md / README** — GoTo/Help marked shipping; M1 done.
+- **H1–H3** — mode-exit, GoTo, Help.
+- **M4-A** — delete with confirm + `enable_trash` + `trash` crate (`x`/`Delete`, not `d`).
+- **design.md / README** — delete marked shipping.
 
 ---
 
 ## HIGH — none open
 
-Confirm remains unreachable until M4 delete — expected, not a trap (no key enters it).
-
 ---
 
-## MAJOR — M4 file operations (still the main feature gap)
+## MAJOR — M4 file operations (remaining)
 
 **Implemented:**
-- **Rename (`F2`)**, **Refresh (`r`)**, **sort (`o`)**, **hidden (`.`)**
+- **Rename (`F2`)**, **Delete (`x`/`Delete` + Confirm)**, **Refresh / sort / hidden**
 - **GoTo (`g`)**, **Help (`?`)**, **Filter (`/`)**
 
 **Not implemented:**
-- **Delete / trash** — no binding enters `AppState::Confirm`; `enable_trash` unused; no `trash` crate.
-- **Copy path (`y`)** — absent; no `arboard`.
-- **Bookmarks (`b`, `1`–`9`)** — `cache.bookmarks` schema only.
-- **History (`u` / `i`)** — absent.
+- **Copy path (`y`)** — absent; no `arboard` (M4-A leftover / next slice).
+- **Bookmarks (`b`, `1`–`9`)** — `cache.bookmarks` schema only (**M4-B**).
+- **History (`u` / `i`)** — absent (**M4-C**).
 
-Next product work: **M4-A** delete + Confirm. Finishing delete + bookmarks also **closes the remaining M5 fields**.
+Next: **M4 copy-path** or **M4-B** bookmarks (closes last M5 field).
 
 ---
 
@@ -105,7 +103,7 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
 | D7 | **Fixed** | Status hints + mode prompts updated with H3. |
 | D8 | **Fixed** | README key table matches shipping UX. |
 | D9 | **New** | Version story broken for release: Cargo `0.1.0`, design “2.0.0 shipping”, tags `v2`/`v3` on different trees. Do not retag `v2` from this tip. |
-| D10 | **New** | No `CHANGELOG`; `tempfile` in `[dependencies]` (test-only); unused `shellexpand`. |
+| D10 | **Open** | No `CHANGELOG`; `tempfile` in `[dependencies]` (test-only). `shellexpand` now used by GoTo. |
 
 ---
 
@@ -122,8 +120,9 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
 
 1. ~~**H1 / H2 — unred the suite & finish mode-exit**~~ **Done.**
 2. ~~**H3 — hide or finish GoTo/Help**~~ **Done** (finished).
-3. **M4 (next real feature work)** — slices:  
-   - **(A)** delete + Confirm + `enable_trash` + `trash` crate; copy-path `y` + `arboard`  
+3. **M4 (remaining)** — slices:  
+   - ~~**(A)** delete + Confirm + `enable_trash` + `trash` crate~~ **Done** (`x`/`Delete`)  
+   - **(A2)** copy-path `y` + `arboard`  
    - **(B)** bookmarks `b` / `1`–`9` (consumes `cache.bookmarks` — closes M5 leftovers)  
    - **(C)** history `u` / `i`  
    - **(D)** optional M5 polish: `P` cycles `OnMove` → `Always` → `Never`
@@ -141,7 +140,7 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
 | `settings.sort` | `o` → `cycle_sort` + refresh + save | Yes |
 | `settings.show_hidden` | `.` toggle + refresh + save | Yes |
 | `settings.preview` | `Never` skips side pane; `OnMove`/`Always` identical; no key | Partial |
-| `settings.enable_trash` | Persisted default only | No → **M4-A** |
+| `settings.enable_trash` | `x`/`Delete` confirm → trash or permanent | Yes |
 | `cache.bookmarks` | Empty vec round-trips in config tests | No → **M4-B** |
 
 **Recommended close-out for M5 leftovers (do with M4, not before H1):**
@@ -152,16 +151,11 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
    - Optional: `Always` = refresh preview even when selection unchanged / on tick; `OnMove` = only on selection change (current behavior).  
    - Tests: cycle persists; `Never` keeps `Previewer::Empty`.
 
-2. **`enable_trash` (M4-A)**  
-   - Add `trash` dependency.  
-   - Normal mode `KeyCode::Char('d')` **conflicts with enter-dir** on this WASD layout — pick a key (`Delete`, `x`, or Shift+`d`) and document it.  
-   - Set `AppState::Confirm`; status/overlay “delete NAME? y/n”.  
-   - On confirm: if `enable_trash` { `trash::delete(path)` } else { `fs::remove_file` / `remove_dir_all` }; then `refresh()`.  
-   - Toggle trash in config (e.g. long-press settings or config-only for v1 of the feature).
+2. ~~**`enable_trash` (M4-A)**~~ **Done** — `trash` crate; `x`/`Delete`; Confirm `y`/`n`; permanent path when `enable_trash = false`.
 
 3. **Bookmarks (M4-B)**  
    - `b` pushes `cwd` onto `cache.bookmarks` (cap 9), `save_config`.  
    - `1`–`9` jumps to `bookmarks[n-1]` if present (`async_reload`).  
    - Reject missing paths with `status_message`.
 
-**Do not start M5 leftovers ahead of M4-A** — Confirm/delete share the mode machinery. H1–H3 are done.
+**M4-A delete is done.** Next meaningful work: copy-path (A2) or bookmarks (B).

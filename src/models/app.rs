@@ -329,6 +329,47 @@ impl App {
         Ok(AppState::Active)
     }
 
+    /// Enter confirm-delete when an entry is selected.
+    pub fn begin_delete(&mut self) -> AppState {
+        match self.selected_artifact() {
+            Some(_) => AppState::Confirm,
+            None => AppState::Active,
+        }
+    }
+
+    /// Delete the selected entry (trash or permanent) and refresh.
+    pub fn commit_delete(&mut self) -> Result<()> {
+        let Some(artifact) = self.selected_artifact() else {
+            return Ok(());
+        };
+        let name = artifact.name.clone();
+        let path = artifact.path.clone();
+        let is_dir = artifact.artifact_type == ArtifactType::Directory;
+        let use_trash = self.config.settings.enable_trash;
+
+        let result = if use_trash {
+            trash::delete(&path).map_err(|error| std::io::Error::other(error.to_string()))
+        } else if is_dir {
+            std::fs::remove_dir_all(&path)
+        } else {
+            std::fs::remove_file(&path)
+        };
+
+        match result {
+            Ok(()) => {
+                self.status_message = if use_trash {
+                    format!("Moved {name} to trash")
+                } else {
+                    format!("Deleted {name}")
+                };
+            }
+            Err(error) => {
+                self.status_message = format!("Delete failed: {error}");
+            }
+        }
+        self.refresh()
+    }
+
     pub fn commit_rename(&mut self) -> Result<()> {
         let new_name = self.rename_input.trim().to_string();
         let Some(artifact) = self.selected_artifact() else {

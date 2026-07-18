@@ -38,7 +38,7 @@ Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc s
 
 **North star:** Responsiveness (non-blocking I/O, predictable ops) with a **small, shippable core**.
 
-**Today on master:** async browse + filter + rename + themes/sort/hidden + text/folder preview + go-to path + help overlay. Delete/trash, clipboard, bookmarks, and history are **not finished** (see §4 / §9 / §16).
+**Today on master:** async browse + filter + rename + delete (confirm + trash) + themes/sort/hidden + text/folder preview + go-to path + help overlay. Clipboard, bookmarks, and history are **not finished** (see §4 / §9 / §16).
 
 ---
 
@@ -46,7 +46,7 @@ Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc s
 
 1. **Never block the UI thread** — directory listing, side-pane reads, and file open run off the main loop (async Tokio + background threads).
 2. **Keyboard-first** — every shipping action has a default binding; config persists theme, sort, preview, hidden, and (schema-ready) trash/bookmarks.
-3. **Predictable file operations** — confirm destructive actions when delete ships; optional trash via the `trash` crate (**planned**).
+3. **Predictable file operations** — confirm destructive actions; optional trash via the `trash` crate when `enable_trash` is set.
 4. **Terminal realism** — true-color themes; degrade gracefully on limited terminals (`Mono` theme).
 5. **Single binary** — workspace members: binary `r_tvui` + `crates/core` only (filesystem listing lives in `core`; no dynamic plugins).
 
@@ -57,7 +57,7 @@ Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc s
 | Persona | Needs | Support on master |
 |--------|--------|-------------------|
 | **Dev on large repos** | Fast navigation, filter, sort, path copy | **Partial** — async listing, 50k cap, cache, filter/sort; copy-path not yet |
-| **Ops / SRE** | Clear errors, trash, open with system app | **Partial** — open works; trash/delete not yet; listing errors often silent |
+| **Ops / SRE** | Clear errors, trash, open with system app | **Partial** — open + trash/delete ship; listing errors often silent |
 | **Minimalist** | Works out of the box, saved config | **Yes** — defaults + `~/.r_tvui/.config.toml` |
 
 ---
@@ -70,7 +70,7 @@ Milestones **M0–M4** below are the **product roadmap**. (Separate IDs in [revi
 |-------|--------|---------------|-------------------------|
 | **M0 — Spike** | TUI frame, list one directory, quit | Opens, lists cwd, quits cleanly | **Done** (WASD nav, not vim `j`/`k`) |
 | **M1 — MVP browser** | Navigate, filter, sort, text preview, config, themes | Daily-usable local browser | **Done** (no multi-tab; WASD nav) |
-| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Partial** — rename only; delete/clipboard/bookmarks/history missing |
+| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Partial** — rename + delete; clipboard/bookmarks/history missing |
 | **M2.5 — Async** | Async listing, directory cache, generation guards, background open | Large dirs stay responsive | **Done** |
 | **M3 — Power** | Split dual-cwd, image preview, git column, external tools | Power-user parity | **Planned** |
 | **M4 — Plugins** | Previewer/spotter API, third-party extensions | Extensibility | **Planned** |
@@ -90,7 +90,7 @@ Early planning proposed many crates (`r-tvui_app`, `r-tvui_fs`, `r-tvui_preview`
 | Multi-tab | M1 | **No** |
 | Async listing + text preview | M1 / M2.5 | **Yes** |
 | Filter / sort / themes / rename | M1–M2 | **Yes** |
-| Delete / trash / clipboard / bookmarks / history | M2 | **No** (schema stubs for trash/bookmarks) |
+| Delete / trash / clipboard / bookmarks / history | M2 | **Partial** — delete+trash yes; clipboard/bookmarks/history no |
 | GoTo path / Help overlay | M1 | **Yes** |
 | Visual selection + bulk copy/move | M2+ | **No** |
 | Image preview (terminal-dependent) | M3 | **No** |
@@ -185,7 +185,7 @@ Opening files with the OS default app uses a background spawn so macOS `open`, L
 |--------|----------------|
 | Manual refresh (`r`) | Clear cache, reload |
 | Sort / hidden toggle | Clear full cache |
-| Rename (and future delete) | Clear cache, async refresh |
+| Rename (and delete) | Clear cache, async refresh |
 
 ---
 
@@ -209,8 +209,8 @@ r_tvui/
     .release.yml       intended release (must be renamed to release.yml)
 ```
 
-**Stack today:** Rust 2024 edition, ratatui 0.30, tokio, clap, serde/toml, dirs.  
-**Planned deps for M2:** `trash`, `arboard` (clipboard).
+**Stack today:** Rust 2024 edition, ratatui 0.30, tokio, clap, serde/toml, dirs, trash.  
+**Planned deps for remaining M2:** `arboard` (clipboard).
 
 ---
 
@@ -223,7 +223,7 @@ r_tvui/
 | **Listing tasks** | Browser vs side-pane requests, events | `models/client.rs` |
 | **Navigation** | Parent, enter dir, scroll, home→root | `events/utils.rs` |
 | **Side pane** | Folder listing / file preview | `models/previewer.rs` + `ui/` |
-| **File ops** | Rename (shipping); delete planned | `models/app.rs` |
+| **File ops** | Rename, delete (confirm + optional trash) | `models/app.rs` |
 | **Config** | Theme, sort, trash flag, bookmarks, preview | `config/` |
 | **Themes** | Forest, Midnight, Solar, Mono | `config/app.rs` |
 
@@ -265,6 +265,7 @@ r_tvui/
 | `.` | Toggle hidden files | Shipping |
 | `t` | Cycle theme (saved to config) | Shipping |
 | `r` | Refresh listing (clears cache) | Shipping |
+| `x` / `Delete` | Delete selected entry (confirm; trash if `enable_trash`) | Shipping |
 | `F2` | Rename | Shipping |
 | `g` | Go to path (type path, Enter jumps; `~` ok) | Shipping |
 | `?` | Help overlay | Shipping |
@@ -280,7 +281,6 @@ r_tvui/
 | `y` | Copy path to clipboard |
 | `b` / `1`–`9` | Bookmark / jump |
 | `P` | Cycle preview mode (`OnMove` / `Always` / `Never`) |
-| Delete key (TBD — not `d`) | Delete with confirm; trash if `enable_trash` |
 
 ### 9.4 Modes
 
@@ -291,12 +291,12 @@ r_tvui/
 | **Rename** | `F2` | Active | Enter commits |
 | **GoTo** | `g` | Clear + Active | Type path; Enter jumps (`q` is literal) |
 | **Help** | `?` | Active | Overlay; `q` also closes |
-| **Confirm** | (planned delete) | Active | Unreachable until delete ships |
+| **Confirm** | `x` / `Delete` | Active | `y` deletes; `n`/`q` cancel |
 
 ### 9.5 File operations
 
 - **Rename:** `F2`, inline buffer, validate before apply — **shipping**.
-- **Delete:** confirm flow + optional trash — **planned** (`enable_trash` in config unused).
+- **Delete:** `x`/`Delete` → confirm; `y` applies. If `enable_trash` → OS trash via `trash` crate; else permanent `remove_file` / `remove_dir_all`.
 - **Open file:** system handler (silent no-op if spawn fails).
 
 ---
@@ -333,7 +333,7 @@ theme = "Forest"   # Forest | Midnight | Solar | Mono
 
 [settings]
 sort = "Name"           # Name | Size | Modified
-enable_trash = true     # persisted; not consumed until delete ships
+enable_trash = true     # true → OS trash; false → permanent delete
 preview = "OnMove"      # OnMove | Always | Never
 show_hidden = false
 
@@ -431,8 +431,8 @@ Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace 
 
 1. No explicit task cancel — generation discard only.
 2. One Tokio runtime per app instance.
-3. M2 incomplete: no delete/trash, clipboard, bookmarks, history.
-4. GoTo and Help ship; Confirm still unused until delete.
+3. M2 incomplete: no clipboard, bookmarks, history (delete/rename ship).
+4. GoTo, Help, and Confirm (delete) ship.
 5. `h`/`Home` → `/`, not `$HOME`; no `G` home jump.
 6. `partial` (50k cap) not shown in UI; async list errors may look like empty dirs.
 7. No tabs, visual multi-select, or copy/move queue.
@@ -443,9 +443,8 @@ Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace 
 
 | Priority | Task |
 |----------|------|
-| **High** | M2 slice: delete + Confirm + `enable_trash` |
-| **Medium** | Bookmarks / clipboard / history; `P` preview cycle |
-| **Medium** | Rename CI workflows; `fmt --check`; clippy `-D warnings` |
+| **High** | M2 remainder: clipboard (`y` + `arboard`), bookmarks, history |
+| **Medium** | `P` preview cycle; rename CI workflows; `fmt --check`; clippy `-D warnings` |
 | **Low** | `$HOME` jump; surface `partial`; abort in-flight listing |
 | **Low** | Multi-tab; git column (M3) |
 

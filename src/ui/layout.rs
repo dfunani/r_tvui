@@ -37,6 +37,17 @@ pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
         );
     } else if app.state == AppState::Help {
         status_message = String::from(" help · Esc/q close ");
+    } else if app.state == AppState::Confirm {
+        let name = app
+            .selected_artifact()
+            .map(|artifact| artifact.name.as_str())
+            .unwrap_or("?");
+        let via = if app.config.settings.enable_trash {
+            "trash"
+        } else {
+            "permanently"
+        };
+        status_message = format!(" delete {name} ({via})? · y confirm · n/Esc cancel ");
     } else if !app.status_message.is_empty() {
         status_message = format!(" {} · {} ", app.status_message, status_message);
     }

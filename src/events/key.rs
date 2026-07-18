@@ -60,10 +60,14 @@ pub fn handle_key_event_go_to_mode(app: &mut App, event_key: KeyEvent) -> Result
     }
 }
 
-pub fn handle_key_event_confirm_mode(_: &mut App, event_key: KeyEvent) -> Result<AppState> {
-    // Esc/`q` are handled by the outer dispatcher (cancel → Active).
-    let _ = event_key;
-    Ok(AppState::Confirm)
+pub fn handle_key_event_confirm_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
+    match event_key.code {
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            app.commit_delete()?;
+            Ok(AppState::Active)
+        }
+        _ => Ok(AppState::Confirm),
+    }
 }
 
 pub fn handle_key_event_help_mode(_: &mut App, event_key: KeyEvent) -> Result<AppState> {

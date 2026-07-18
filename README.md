@@ -65,11 +65,12 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `.` | Toggle hidden files |
 | `r` | Refresh listing |
 | `F2` | Rename selected entry |
+| `x` or `Delete` | Delete selected entry (confirm; trash if enabled) |
 | `q` or `Esc` | Quit |
 
-> **Note:** `d` enters folders; `Enter` opens files (and other types) externally. This differs from some vim-style explorers that use `l` / `Enter` only for navigation.
+> **Note:** `d` enters folders; `Enter` opens files (and other types) externally. This differs from some vim-style explorers that use `l` / `Enter` only for navigation. Delete uses `x`/`Delete` because `d` is already enter-dir.
 
-### Filter / go-to / rename / help modes
+### Filter / go-to / rename / help / confirm modes
 
 | Mode | Cancel | Notes |
 |------|--------|-------|
@@ -77,6 +78,7 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | Go to (`g`) | `Esc` | Enter jumps to an existing directory; `q` is path input |
 | Rename (`F2`) | `Esc` | Enter commits |
 | Help (`?`) | `Esc` or `q` | Overlay with key reference |
+| Confirm delete (`x`) | `Esc` / `q` / `n` | `y` deletes (trash or permanent per config) |
 
 ### Planned (not bound yet)
 
@@ -87,7 +89,7 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `G` | Jump to `$HOME` |
 | `P` | Cycle preview mode |
 | `y` | Copy path |
-| Delete, bookmarks, history | See [design.md](docs/design.md) / [tutorial.md](docs/tutorial.md) |
+| Bookmarks, history | See [design.md](docs/design.md) / [tutorial.md](docs/tutorial.md) |
 
 ## Configuration
 
@@ -107,7 +109,7 @@ Example fields (TOML):
 | `settings.preview` | `OnMove`, `Always`, `Never` | `OnMove` |
 | `cache.bookmarks` | list of paths | `[]` |
 
-Theme, sort, and hidden toggles persist from the UI. Trash and bookmarks are stored but not yet wired to keybindings.
+Theme, sort, hidden, and trash preference persist. Bookmarks are stored but not yet wired to keybindings. Set `enable_trash = false` for permanent deletes.
 
 ## Development
 
