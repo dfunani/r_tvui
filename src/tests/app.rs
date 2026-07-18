@@ -289,6 +289,39 @@ mod test_app {
     }
 
     #[test]
+    fn begin_goto_clears_buffer() {
+        let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.goto_input = "stale".to_string();
+        assert_eq!(app.begin_goto(), AppState::GoTo);
+        assert!(app.goto_input.is_empty());
+    }
+
+    #[test]
+    fn commit_goto_jumps_to_directory() {
+        let target = tempfile::tempdir().unwrap();
+        let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.goto_input = target.path().display().to_string();
+        assert_eq!(app.commit_goto().unwrap(), AppState::Active);
+        assert_eq!(
+            app.current_working_directory,
+            target.path().canonicalize().unwrap()
+        );
+        assert!(app.goto_input.is_empty());
+    }
+
+    #[test]
+    fn commit_goto_rejects_missing_and_file_paths() {
+        let (dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.goto_input = "/no/such/rtvui/dir".to_string();
+        assert_eq!(app.commit_goto().unwrap(), AppState::GoTo);
+        assert!(app.status_message.contains("not found"));
+
+        app.goto_input = dir.path().join("file.txt").display().to_string();
+        assert_eq!(app.commit_goto().unwrap(), AppState::GoTo);
+        assert!(app.status_message.contains("not a directory"));
+    }
+
+    #[test]
     fn commit_rename_renames_file() {
         let (dir, mut app) = app_with_files(&[("old.txt", "a")]);
         app.reload().unwrap();

@@ -33,7 +33,7 @@ pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Resu
             app.filter()?;
             Ok(AppState::Filter)
         }
-        KeyCode::Char('g') => Ok(AppState::GoTo),
+        KeyCode::Char('g') => Ok(app.begin_goto()),
         KeyCode::Char('?') => Ok(AppState::Help),
         KeyCode::F(2) => Ok(app.begin_rename()),
         _ => handle_key_event_normal_mode(app, event_key),
@@ -60,21 +60,25 @@ pub fn handle_key_events_filter_mode(app: &mut App, event_key: KeyEvent) -> Resu
 
 pub fn handle_key_events_go_to_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
+        // Esc cancels; `q` is a literal path character (same contract as Filter).
+        KeyCode::Esc => {
+            app.goto_input.clear();
+            Ok(AppState::Active)
+        }
         _ => handle_key_event_go_to_mode(app, event_key),
     }
 }
 
 pub fn handle_key_events_confirm_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
+        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Active),
         _ => handle_key_event_confirm_mode(app, event_key),
     }
 }
 
 pub fn handle_key_events_help_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
+        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Active),
         _ => handle_key_event_help_mode(app, event_key),
     }
 }

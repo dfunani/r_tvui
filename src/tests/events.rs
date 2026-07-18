@@ -207,15 +207,20 @@ mod test_events {
 
         app.state = AppState::GoTo;
         dispatch_key(&mut app, code(KeyCode::Esc)).unwrap();
-        assert_eq!(app.state, AppState::Quit);
+        assert_eq!(app.state, AppState::Active);
 
         app.state = AppState::Confirm;
         dispatch_key(&mut app, code(KeyCode::Esc)).unwrap();
-        assert_eq!(app.state, AppState::Quit);
+        assert_eq!(app.state, AppState::Active);
 
         app.state = AppState::Help;
         dispatch_key(&mut app, code(KeyCode::Esc)).unwrap();
-        assert_eq!(app.state, AppState::Quit);
+        assert_eq!(app.state, AppState::Active);
+
+        // `q` cancels Help (not GoTo — GoTo treats `q` as path input).
+        app.state = AppState::Help;
+        dispatch_key(&mut app, ch('q')).unwrap();
+        assert_eq!(app.state, AppState::Active);
 
         // The Quit arm is a no-op terminal state.
         app.state = AppState::Quit;
@@ -231,15 +236,19 @@ mod test_events {
 
         assert_eq!(
             handle_key_events_go_to_mode(&mut app, code(KeyCode::Esc)).unwrap(),
-            AppState::Quit
+            AppState::Active
         );
-        assert_eq!(handle_key_events_confirm_mode(&mut app, ch('q')).unwrap(), AppState::Quit);
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('q')).unwrap(),
+            AppState::Active
+        );
         assert_eq!(
             handle_key_events_help_mode(&mut app, code(KeyCode::Esc)).unwrap(),
-            AppState::Quit
+            AppState::Active
         );
 
         assert_eq!(handle_key_events_go_to_mode(&mut app, ch('x')).unwrap(), AppState::GoTo);
+        assert_eq!(app.goto_input, "x");
         assert_eq!(handle_key_events_confirm_mode(&mut app, ch('x')).unwrap(), AppState::Confirm);
         assert_eq!(handle_key_events_help_mode(&mut app, ch('x')).unwrap(), AppState::Help);
     }
@@ -249,22 +258,70 @@ mod test_events {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
 
         assert_eq!(
-            handle_key_event_go_to_mode(&mut app, code(KeyCode::Esc)).unwrap(),
-            AppState::Quit
+            handle_key_event_go_to_mode(&mut app, ch('q')).unwrap(),
+            AppState::GoTo
         );
+        assert_eq!(app.goto_input, "q");
         assert_eq!(handle_key_event_go_to_mode(&mut app, ch('x')).unwrap(), AppState::GoTo);
+        assert_eq!(app.goto_input, "qx");
 
         assert_eq!(
             handle_key_event_confirm_mode(&mut app, ch('q')).unwrap(),
-            AppState::Active
+            AppState::Confirm
         );
         assert_eq!(handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(), AppState::Confirm);
 
         assert_eq!(
             handle_key_event_help_mode(&mut app, code(KeyCode::Esc)).unwrap(),
-            AppState::Active
+            AppState::Help
         );
         assert_eq!(handle_key_event_help_mode(&mut app, ch('x')).unwrap(), AppState::Help);
+    }
+
+    #[test]
+    fn goto_mode_types_jumps_and_rejects() {
+        let target = tempfile::tempdir().unwrap();
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('g')).unwrap(),
+            AppState::GoTo
+        );
+        assert!(app.goto_input.is_empty());
+
+        for c in target.path().display().to_string().chars() {
+            assert_eq!(
+                handle_key_events_go_to_mode(&mut app, ch(c)).unwrap(),
+                AppState::GoTo
+            );
+        }
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, code(KeyCode::Enter)).unwrap(),
+            AppState::Active
+        );
+        assert_eq!(
+            app.current_working_directory,
+            target.path().canonicalize().unwrap()
+        );
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('g')).unwrap(),
+            AppState::GoTo
+        );
+        for c in "/no/such/rtvui/path".chars() {
+            handle_key_events_go_to_mode(&mut app, ch(c)).unwrap();
+        }
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, code(KeyCode::Enter)).unwrap(),
+            AppState::GoTo
+        );
+        assert!(app.status_message.contains("not found"));
+
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, code(KeyCode::Esc)).unwrap(),
+            AppState::Active
+        );
+        assert!(app.goto_input.is_empty());
     }
 
     // ---- option keys (persist to a sandboxed HOME) -------------------------

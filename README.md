@@ -57,22 +57,26 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `d` | Enter selected **directory** |
 | `Enter` | Open selected item with the system default app (`open` / `xdg-open` / Windows `start`) |
 | `h` or `Home` | Jump to filesystem root (`/`) |
-| `/` | Enter filter mode *(input not implemented yet)* |
-| `g` | Enter go-to-path mode *(path input not implemented yet)* |
-| `?` | Enter help mode *(overlay not implemented yet)* |
+| `/` | Filter listing by name (type to narrow; Esc clears) |
+| `g` | Go to path (type path, Enter jumps; `~` supported) |
+| `?` | Help overlay |
+| `t` | Cycle theme (saved) |
+| `o` | Cycle sort (name / size / modified) |
+| `.` | Toggle hidden files |
+| `r` | Refresh listing |
+| `F2` | Rename selected entry |
 | `q` or `Esc` | Quit |
 
 > **Note:** `d` enters folders; `Enter` opens files (and other types) externally. This differs from some vim-style explorers that use `l` / `Enter` only for navigation.
 
-### Filter / go-to / help modes
+### Filter / go-to / rename / help modes
 
-These modes are wired in the event loop but still minimal. In all of them today:
-
-| Key | Action |
-|-----|--------|
-| `Esc` or `q` | Quit the app |
-
-Filter does not yet accept typed input; go-to does not yet jump to a path; help does not yet show a key reference panel.
+| Mode | Cancel | Notes |
+|------|--------|-------|
+| Filter (`/`) | `Esc` | Typed chars (including `q`) filter the list |
+| Go to (`g`) | `Esc` | Enter jumps to an existing directory; `q` is path input |
+| Rename (`F2`) | `Esc` | Enter commits |
+| Help (`?`) | `Esc` or `q` | Overlay with key reference |
 
 ### Planned (not bound yet)
 
@@ -80,10 +84,10 @@ Filter does not yet accept typed input; go-to does not yet jump to a path; help 
 |-----|----------------|
 | `j` / `k` | Alternative move up/down |
 | `l` | Enter directory |
-| `t` | Cycle theme |
-| `P` | Toggle preview-on-move |
+| `G` | Jump to `$HOME` |
+| `P` | Cycle preview mode |
 | `y` | Copy path |
-| Sort, delete, bookmarks, history | See [tutorial.md](docs/tutorial.md) |
+| Delete, bookmarks, history | See [design.md](docs/design.md) / [tutorial.md](docs/tutorial.md) |
 
 ## Configuration
 
@@ -103,7 +107,7 @@ Example fields (TOML):
 | `settings.preview` | `OnMove`, `Always`, `Never` | `OnMove` |
 | `cache.bookmarks` | list of paths | `[]` |
 
-Theme cycling and preview settings are stored in config but not yet applied from keybindings in the UI.
+Theme, sort, and hidden toggles persist from the UI. Trash and bookmarks are stored but not yet wired to keybindings.
 
 ## Development
 

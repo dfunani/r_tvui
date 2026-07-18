@@ -19,6 +19,7 @@ pub struct App {
     pub state: AppState,
     pub filter_input: String,
     pub rename_input: String,
+    pub goto_input: String,
     pub entries_cache: Vec<Artifact>,
     pub entries_filtered: Vec<Artifact>,
 
@@ -70,6 +71,7 @@ impl App {
             state: AppState::Active,
             filter_input: String::new(),
             rename_input: String::new(),
+            goto_input: String::new(),
             entries_cache: artifacts.clone(),
             entries_filtered: artifacts.clone(),
             config,
@@ -282,6 +284,49 @@ impl App {
             }
             None => AppState::Active,
         }
+    }
+
+    /// Clear the go-to buffer and enter path-jump mode.
+    pub fn begin_goto(&mut self) -> AppState {
+        self.goto_input.clear();
+        AppState::GoTo
+    }
+
+    /// Resolve `goto_input` (supports `~`) and jump if it is an existing directory.
+    pub fn commit_goto(&mut self) -> Result<AppState> {
+        let raw = self.goto_input.trim();
+        if raw.is_empty() {
+            self.status_message = "Go to: enter a path".to_string();
+            return Ok(AppState::GoTo);
+        }
+
+        let expanded = shellexpand::tilde(raw);
+        let candidate = PathBuf::from(expanded.as_ref());
+        let candidate = if candidate.is_absolute() {
+            candidate
+        } else {
+            self.current_working_directory.join(candidate)
+        };
+
+        let path = match candidate.canonicalize() {
+            Ok(path) => path,
+            Err(_) => {
+                self.status_message = format!("Go to failed: {raw} not found");
+                return Ok(AppState::GoTo);
+            }
+        };
+
+        if !path.is_dir() {
+            self.status_message = format!("Go to failed: {raw} is not a directory");
+            return Ok(AppState::GoTo);
+        }
+
+        self.current_working_directory = path;
+        self.goto_input.clear();
+        self.scroll_state.select(Some(0));
+        self.status_message.clear();
+        self.async_reload()?;
+        Ok(AppState::Active)
     }
 
     pub fn commit_rename(&mut self) -> Result<()> {
