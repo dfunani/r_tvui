@@ -29,7 +29,7 @@ Code-structure liberties (match vs if, WASD vs vim bindings, module shapes) are 
 | M1 — async listing / cache / generation | **FIXED** | `AsyncEventClient` + generation guards + path cache. |
 | M2 — filter | **FIXED** | `/` live input, `entries_filtered`, Esc clears. |
 | M3 — themes | **FIXED** | `t` cycles + persists; `Palette` applied in UI. |
-| M5 — unused config fields | **MOSTLY DONE** | `sort`, `show_hidden`, `preview==Never`, **`enable_trash`** wired. Still unused: `bookmarks`. No `P` preview cycle. |
+| M5 — unused config fields | **DONE** (except preview polish) | `sort`, `show_hidden`, `preview==Never`, `enable_trash`, **`bookmarks`** wired. No `P` cycle / Always vs OnMove. |
 | N2 — Enter on a directory | **FIXED** | Enter opens files / enters dirs. |
 | P1 — side pane re-reads each frame | **FIXED** | Async + cached preview. |
 | P2 — `entries_cache` stale after `cd` | **FIXED** | Refreshed on async reload path. |
@@ -37,6 +37,7 @@ Code-structure liberties (match vs if, WASD vs vim bindings, module shapes) are 
 | H3 — GoTo / Help stubs | **FIXED** | Path jump + help overlay ship. |
 | M4-A — delete / Confirm / trash | **FIXED** | `x`/`Delete` → Confirm; `y`/`n`; `trash` crate when `enable_trash`. |
 | M4-A2 — copy path | **FIXED** | `y` in normal mode + `arboard`; status on success/failure. |
+| M4-B — bookmarks | **FIXED** | `b` saves cwd (cap 9); `1`–`9` jump; persisted. |
 | D5 — `scripts/install.sh` missing | **FIXED** | Script present; still references missing `docs/INSTALL.md` and wrong config path in comments/errors. |
 | D7 — status hint garbled | **FIXED** | Status bar lists live bindings; mode prompts including delete confirm. |
 | D8 — README understates UX | **FIXED** | README key table updated. |
@@ -58,14 +59,13 @@ Code-structure liberties (match vs if, WASD vs vim bindings, module shapes) are 
 ## MAJOR — M4 file operations (remaining)
 
 **Implemented:**
-- **Rename (`F2`)**, **Delete (`x`/`Delete` + Confirm)**, **Copy path (`y`)**, **Refresh / sort / hidden**
+- **Rename (`F2`)**, **Delete**, **Copy path (`y`)**, **Bookmarks (`b` / `1`–`9`)**, **Refresh / sort / hidden**
 - **GoTo (`g`)**, **Help (`?`)**, **Filter (`/`)**
 
 **Not implemented:**
-- **Bookmarks (`b`, `1`–`9`)** — `cache.bookmarks` schema only (**M4-B**).
 - **History (`u` / `i`)** — absent (**M4-C**).
 
-Next: **M4-B** bookmarks (closes last M5 field).
+Next: **M4-C** history.
 
 ---
 
@@ -123,7 +123,7 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
 3. **M4 (remaining)** — slices:  
    - ~~**(A)** delete + Confirm + `enable_trash` + `trash` crate~~ **Done** (`x`/`Delete`)  
    - ~~**(A2)** copy-path `y` + `arboard`~~ **Done**  
-   - **(B)** bookmarks `b` / `1`–`9` (consumes `cache.bookmarks` — closes M5 leftovers)  
+   - ~~**(B)** bookmarks `b` / `1`–`9`~~ **Done**  
    - **(C)** history `u` / `i`  
    - **(D)** optional M5 polish: `P` cycles `OnMove` → `Always` → `Never`
 4. **N1** — `$HOME` jump; reconcile `h`/`Home`/`G` with docs + tests.
@@ -141,7 +141,7 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
 | `settings.show_hidden` | `.` toggle + refresh + save | Yes |
 | `settings.preview` | `Never` skips side pane; `OnMove`/`Always` identical; no key | Partial |
 | `settings.enable_trash` | `x`/`Delete` confirm → trash or permanent | Yes |
-| `cache.bookmarks` | Empty vec round-trips in config tests | No → **M4-B** |
+| `cache.bookmarks` | `b` / `1`–`9` | Yes |
 
 **Recommended close-out for M5 leftovers (do with M4, not before H1):**
 
@@ -153,9 +153,6 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
 
 2. ~~**`enable_trash` (M4-A)**~~ **Done** — `trash` crate; `x`/`Delete`; Confirm `y`/`n`; permanent path when `enable_trash = false`.
 
-3. **Bookmarks (M4-B)**  
-   - `b` pushes `cwd` onto `cache.bookmarks` (cap 9), `save_config`.  
-   - `1`–`9` jumps to `bookmarks[n-1]` if present (`async_reload`).  
-   - Reject missing paths with `status_message`.
+3. ~~**Bookmarks (M4-B)**~~ **Done** — `b` cap 9; `1`–`9` jump; persist; missing path status.
 
-**M4-A / A2 done.** Next: bookmarks (B) or history (C).
+**M4-A / A2 / B done.** Next: history (C) or preview polish (D).

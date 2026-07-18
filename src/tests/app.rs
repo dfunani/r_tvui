@@ -366,6 +366,48 @@ mod test_app {
     }
 
     #[test]
+    fn bookmark_cwd_and_jump() {
+        use crate::tests::support::with_temp_home;
+
+        with_temp_home(|_| {
+            let first = tempfile::tempdir().unwrap();
+            let second = tempfile::tempdir().unwrap();
+            let mut app = App::new(first.path().to_path_buf(), AppConfig::default()).unwrap();
+            app.reload().unwrap();
+
+            app.bookmark_cwd();
+            assert_eq!(app.config.cache.bookmarks.len(), 1);
+            assert!(app.status_message.contains("Bookmarked as 1"));
+
+            app.bookmark_cwd();
+            assert_eq!(app.config.cache.bookmarks.len(), 1);
+            assert!(app.status_message.contains("Already bookmarked as 1"));
+
+            app.current_working_directory = second.path().to_path_buf();
+            app.bookmark_cwd();
+            assert_eq!(app.config.cache.bookmarks.len(), 2);
+
+            app.jump_to_bookmark(1).unwrap();
+            assert_eq!(
+                app.current_working_directory,
+                first.path().canonicalize().unwrap()
+            );
+            assert!(app.status_message.contains("Jumped to bookmark 1"));
+
+            app.jump_to_bookmark(9).unwrap();
+            assert!(app.status_message.contains("No bookmark in slot 9"));
+        });
+    }
+
+    #[test]
+    fn jump_to_bookmark_reports_missing_path() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.config.cache.bookmarks = vec!["/no/such/rtvui/bookmark".to_string()];
+        app.jump_to_bookmark(1).unwrap();
+        assert!(app.status_message.contains("missing"));
+    }
+
+    #[test]
     fn commit_goto_jumps_to_directory() {
         let target = tempfile::tempdir().unwrap();
         let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);

@@ -67,6 +67,8 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `F2` | Rename selected entry |
 | `x` or `Delete` | Delete selected entry (confirm; trash if enabled) |
 | `y` | Copy selected path to clipboard |
+| `b` | Bookmark current directory (up to 9) |
+| `1`–`9` | Jump to bookmark slot |
 | `q` or `Esc` | Quit |
 
 > **Note:** `d` enters folders; `Enter` opens files (and other types) externally. This differs from some vim-style explorers that use `l` / `Enter` only for navigation. Delete uses `x`/`Delete` because `d` is already enter-dir.
@@ -89,7 +91,7 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `l` | Enter directory |
 | `G` | Jump to `$HOME` |
 | `P` | Cycle preview mode |
-| Bookmarks, history | See [design.md](docs/design.md) / [tutorial.md](docs/tutorial.md) |
+| History (`u` / `i`) | See [design.md](docs/design.md) / [tutorial.md](docs/tutorial.md) |
 
 ## Configuration
 
@@ -109,7 +111,7 @@ Example fields (TOML):
 | `settings.preview` | `OnMove`, `Always`, `Never` | `OnMove` |
 | `cache.bookmarks` | list of paths | `[]` |
 
-Theme, sort, hidden, and trash preference persist. Bookmarks are stored but not yet wired to keybindings. Set `enable_trash = false` for permanent deletes.
+Theme, sort, hidden, trash, and bookmarks persist from the UI. Set `enable_trash = false` for permanent deletes.
 
 ## Development
 

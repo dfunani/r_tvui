@@ -38,7 +38,7 @@ Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc s
 
 **North star:** Responsiveness (non-blocking I/O, predictable ops) with a **small, shippable core**.
 
-**Today on master:** async browse + filter + rename + delete (confirm + trash) + copy path + themes/sort/hidden + text/folder preview + go-to path + help overlay. Bookmarks and history are **not finished** (see §4 / §9 / §16).
+**Today on master:** async browse + filter + rename + delete (confirm + trash) + copy path + bookmarks + themes/sort/hidden + text/folder preview + go-to path + help overlay. History is **not finished** (see §4 / §9 / §16).
 
 ---
 
@@ -70,7 +70,7 @@ Milestones **M0–M4** below are the **product roadmap**. (Separate IDs in [revi
 |-------|--------|---------------|-------------------------|
 | **M0 — Spike** | TUI frame, list one directory, quit | Opens, lists cwd, quits cleanly | **Done** (WASD nav, not vim `j`/`k`) |
 | **M1 — MVP browser** | Navigate, filter, sort, text preview, config, themes | Daily-usable local browser | **Done** (no multi-tab; WASD nav) |
-| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Partial** — rename + delete + copy path; bookmarks/history missing |
+| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Partial** — rename + delete + copy + bookmarks; history missing |
 | **M2.5 — Async** | Async listing, directory cache, generation guards, background open | Large dirs stay responsive | **Done** |
 | **M3 — Power** | Split dual-cwd, image preview, git column, external tools | Power-user parity | **Planned** |
 | **M4 — Plugins** | Previewer/spotter API, third-party extensions | Extensibility | **Planned** |
@@ -90,7 +90,7 @@ Early planning proposed many crates (`r-tvui_app`, `r-tvui_fs`, `r-tvui_preview`
 | Multi-tab | M1 | **No** |
 | Async listing + text preview | M1 / M2.5 | **Yes** |
 | Filter / sort / themes / rename | M1–M2 | **Yes** |
-| Delete / trash / clipboard / bookmarks / history | M2 | **Partial** — delete+trash+copy yes; bookmarks/history no |
+| Delete / trash / clipboard / bookmarks / history | M2 | **Partial** — delete+trash+copy+bookmarks yes; history no |
 | GoTo path / Help overlay | M1 | **Yes** |
 | Visual selection + bulk copy/move | M2+ | **No** |
 | Image preview (terminal-dependent) | M3 | **No** |
@@ -266,6 +266,8 @@ r_tvui/
 | `r` | Refresh listing (clears cache) | Shipping |
 | `x` / `Delete` | Delete selected entry (confirm; trash if `enable_trash`) | Shipping |
 | `y` | Copy selected path to clipboard | Shipping |
+| `b` | Bookmark current directory (slots 1–9) | Shipping |
+| `1`–`9` | Jump to bookmark slot | Shipping |
 | `F2` | Rename | Shipping |
 | `g` | Go to path (type path, Enter jumps; `~` ok) | Shipping |
 | `?` | Help overlay | Shipping |
@@ -278,7 +280,6 @@ r_tvui/
 | `j` / `k` / `l` | Vim-style nav (optional alias) |
 | `G` | Jump to `$HOME` |
 | `u` / `i` | History back / forward |
-| `b` / `1`–`9` | Bookmark / jump |
 | `P` | Cycle preview mode (`OnMove` / `Always` / `Never`) |
 
 ### 9.4 Modes
@@ -297,6 +298,7 @@ r_tvui/
 - **Rename:** `F2`, inline buffer, validate before apply — **shipping**.
 - **Delete:** `x`/`Delete` → confirm; `y` applies. If `enable_trash` → OS trash via `trash` crate; else permanent `remove_file` / `remove_dir_all`.
 - **Copy path:** `y` in normal mode copies the selected absolute path via `arboard` (status reports success or failure).
+- **Bookmarks:** `b` adds cwd (cap 9, persisted); `1`–`9` jumps. Missing paths report in the status bar.
 - **Open file:** system handler (silent no-op if spawn fails).
 
 ---
@@ -338,7 +340,7 @@ preview = "OnMove"      # OnMove | Always | Never
 show_hidden = false
 
 [cache]
-bookmarks = []          # persisted; no keybindings yet
+bookmarks = []          # up to 9 paths; `b` / `1`–`9` in the UI
 ```
 
 **Themes:** Forest, Midnight, Solar, Mono (no `gotyme`).
@@ -431,7 +433,7 @@ Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace 
 
 1. No explicit task cancel — generation discard only.
 2. One Tokio runtime per app instance.
-3. M2 incomplete: no bookmarks or history (delete/rename/copy ship).
+3. M2 incomplete: no history (delete/rename/copy/bookmarks ship).
 4. GoTo, Help, and Confirm (delete) ship.
 5. `h`/`Home` → `/`, not `$HOME`; no `G` home jump.
 6. `partial` (50k cap) not shown in UI; async list errors may look like empty dirs.
@@ -443,7 +445,7 @@ Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace 
 
 | Priority | Task |
 |----------|------|
-| **High** | M2 remainder: bookmarks, history |
+| **High** | M2 remainder: history (`u` / `i`) |
 | **Medium** | `P` preview cycle; rename CI workflows; `fmt --check`; clippy `-D warnings` |
 | **Low** | `$HOME` jump; surface `partial`; abort in-flight listing |
 | **Low** | Multi-tab; git column (M3) |

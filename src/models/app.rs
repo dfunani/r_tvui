@@ -7,6 +7,7 @@ use std::io::Result;
 use std::path::PathBuf;
 
 use crate::config::app::{AppConfig, Palette, Preview, Sort, Themes};
+use crate::config::utils::{get_config_path, save_config};
 use crate::models::client::{AsyncEventClient, AsyncEvents};
 use crate::models::previewer::Previewer;
 
@@ -327,6 +328,60 @@ impl App {
         self.status_message.clear();
         self.async_reload()?;
         Ok(AppState::Active)
+    }
+
+    /// Bookmark the current directory into slots 1–9 (persisted).
+    pub fn bookmark_cwd(&mut self) {
+        let path = self
+            .current_working_directory
+            .canonicalize()
+            .unwrap_or_else(|_| self.current_working_directory.clone())
+            .display()
+            .to_string();
+
+        if let Some(index) = self
+            .config
+            .cache
+            .bookmarks
+            .iter()
+            .position(|bookmark| bookmark == &path)
+        {
+            self.status_message = format!("Already bookmarked as {}", index + 1);
+            return;
+        }
+
+        if self.config.cache.bookmarks.len() >= 9 {
+            self.config.cache.bookmarks.remove(0);
+        }
+        self.config.cache.bookmarks.push(path);
+        let slot = self.config.cache.bookmarks.len();
+        save_config(&self.config, &get_config_path()).unwrap_or_default();
+        self.status_message = format!("Bookmarked as {slot}");
+    }
+
+    /// Jump to bookmark slot `1..=9` if present and still a directory.
+    pub fn jump_to_bookmark(&mut self, slot: usize) -> Result<()> {
+        if !(1..=9).contains(&slot) {
+            return Ok(());
+        }
+        let Some(path_str) = self.config.cache.bookmarks.get(slot - 1).cloned() else {
+            self.status_message = format!("No bookmark in slot {slot}");
+            return Ok(());
+        };
+
+        let candidate = PathBuf::from(&path_str);
+        let path = match candidate.canonicalize() {
+            Ok(path) if path.is_dir() => path,
+            _ => {
+                self.status_message = format!("Bookmark {slot} missing: {path_str}");
+                return Ok(());
+            }
+        };
+
+        self.current_working_directory = path;
+        self.scroll_state.select(Some(0));
+        self.status_message = format!("Jumped to bookmark {slot}");
+        self.async_reload()
     }
 
     /// Enter confirm-delete when an entry is selected.

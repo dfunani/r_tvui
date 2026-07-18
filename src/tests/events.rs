@@ -373,6 +373,34 @@ mod test_events {
         );
     }
 
+    #[test]
+    fn bookmark_keys_save_and_jump() {
+        with_temp_home(|_| {
+            let first = tempfile::tempdir().unwrap();
+            let second = tempfile::tempdir().unwrap();
+            let mut app = App::new(first.path().to_path_buf(), AppConfig::default()).unwrap();
+            app.reload().unwrap();
+
+            assert_eq!(
+                handle_key_events_normal_mode(&mut app, ch('b')).unwrap(),
+                AppState::Active
+            );
+            assert_eq!(app.config.cache.bookmarks.len(), 1);
+
+            app.current_working_directory = second.path().to_path_buf();
+            handle_key_events_normal_mode(&mut app, ch('b')).unwrap();
+
+            assert_eq!(
+                handle_key_events_normal_mode(&mut app, ch('1')).unwrap(),
+                AppState::Active
+            );
+            assert_eq!(
+                app.current_working_directory,
+                first.path().canonicalize().unwrap()
+            );
+        });
+    }
+
     // ---- option keys (persist to a sandboxed HOME) -------------------------
 
     #[test]
