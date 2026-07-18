@@ -66,6 +66,7 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `r` | Refresh listing |
 | `F2` | Rename selected entry |
 | `x` or `Delete` | Delete selected entry (confirm; trash if enabled) |
+| `y` | Copy selected path to clipboard |
 | `q` or `Esc` | Quit |
 
 > **Note:** `d` enters folders; `Enter` opens files (and other types) externally. This differs from some vim-style explorers that use `l` / `Enter` only for navigation. Delete uses `x`/`Delete` because `d` is already enter-dir.
@@ -88,7 +89,6 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `l` | Enter directory |
 | `G` | Jump to `$HOME` |
 | `P` | Cycle preview mode |
-| `y` | Copy path |
 | Bookmarks, history | See [design.md](docs/design.md) / [tutorial.md](docs/tutorial.md) |
 
 ## Configuration

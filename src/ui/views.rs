@@ -17,13 +17,13 @@ const HELP_LINES: [&str; 15] = [
     "  g             go to path  ·  / filter  ·  r refresh",
     "",
     "Options",
-    "  t theme  ·  o sort  ·  . hidden  ·  F2 rename  ·  x/Del delete",
+    "  t theme  ·  o sort  ·  . hidden  ·  F2 rename  ·  x/Del delete  ·  y copy path",
     "",
     "Modes",
     "  Esc           cancel filter / go-to / rename / help / delete",
     "  q             quit (normal) · close help",
     "  ?             this help",
-    "  y / n         confirm / cancel delete",
+    "  y / n         confirm / cancel delete (in confirm mode)",
 ];
 
 pub fn get_preview_text<'a>(body: &str, title: String, palette: Palette) -> Paragraph<'a> {

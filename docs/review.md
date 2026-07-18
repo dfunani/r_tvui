@@ -36,6 +36,7 @@ Code-structure liberties (match vs if, WASD vs vim bindings, module shapes) are 
 | HIGH — Esc in GoTo/Help/Confirm quits | **FIXED** | Outer cancel → `Active`; GoTo uses Esc-only so `q` is path input. |
 | H3 — GoTo / Help stubs | **FIXED** | Path jump + help overlay ship. |
 | M4-A — delete / Confirm / trash | **FIXED** | `x`/`Delete` → Confirm; `y`/`n`; `trash` crate when `enable_trash`. |
+| M4-A2 — copy path | **FIXED** | `y` in normal mode + `arboard`; status on success/failure. |
 | D5 — `scripts/install.sh` missing | **FIXED** | Script present; still references missing `docs/INSTALL.md` and wrong config path in comments/errors. |
 | D7 — status hint garbled | **FIXED** | Status bar lists live bindings; mode prompts including delete confirm. |
 | D8 — README understates UX | **FIXED** | README key table updated. |
@@ -57,15 +58,14 @@ Code-structure liberties (match vs if, WASD vs vim bindings, module shapes) are 
 ## MAJOR — M4 file operations (remaining)
 
 **Implemented:**
-- **Rename (`F2`)**, **Delete (`x`/`Delete` + Confirm)**, **Refresh / sort / hidden**
+- **Rename (`F2`)**, **Delete (`x`/`Delete` + Confirm)**, **Copy path (`y`)**, **Refresh / sort / hidden**
 - **GoTo (`g`)**, **Help (`?`)**, **Filter (`/`)**
 
 **Not implemented:**
-- **Copy path (`y`)** — absent; no `arboard` (M4-A leftover / next slice).
 - **Bookmarks (`b`, `1`–`9`)** — `cache.bookmarks` schema only (**M4-B**).
 - **History (`u` / `i`)** — absent (**M4-C**).
 
-Next: **M4 copy-path** or **M4-B** bookmarks (closes last M5 field).
+Next: **M4-B** bookmarks (closes last M5 field).
 
 ---
 
@@ -122,7 +122,7 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
 2. ~~**H3 — hide or finish GoTo/Help**~~ **Done** (finished).
 3. **M4 (remaining)** — slices:  
    - ~~**(A)** delete + Confirm + `enable_trash` + `trash` crate~~ **Done** (`x`/`Delete`)  
-   - **(A2)** copy-path `y` + `arboard`  
+   - ~~**(A2)** copy-path `y` + `arboard`~~ **Done**  
    - **(B)** bookmarks `b` / `1`–`9` (consumes `cache.bookmarks` — closes M5 leftovers)  
    - **(C)** history `u` / `i`  
    - **(D)** optional M5 polish: `P` cycles `OnMove` → `Always` → `Never`
@@ -158,4 +158,4 @@ Suggested binding: keep `a`/Left = parent; map `G` (or a dedicated key) to `$HOM
    - `1`–`9` jumps to `bookmarks[n-1]` if present (`async_reload`).  
    - Reject missing paths with `status_message`.
 
-**M4-A delete is done.** Next meaningful work: copy-path (A2) or bookmarks (B).
+**M4-A / A2 done.** Next: bookmarks (B) or history (C).

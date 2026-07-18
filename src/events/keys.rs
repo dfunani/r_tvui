@@ -38,6 +38,10 @@ pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Resu
         KeyCode::F(2) => Ok(app.begin_rename()),
         // `d` is enter-dir on WASD; use `x` / Delete for destructive delete.
         KeyCode::Char('x') | KeyCode::Delete => Ok(app.begin_delete()),
+        KeyCode::Char('y') => {
+            app.copy_selected_path();
+            Ok(AppState::Active)
+        }
         _ => handle_key_event_normal_mode(app, event_key),
     }
 }

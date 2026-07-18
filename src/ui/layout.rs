@@ -18,7 +18,9 @@ pub fn get_path_bar<'a>(app: &'a App) -> Line<'a> {
 pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
     let accent = app.palette().accent;
     let mut status_message =
-        String::from(" w/s ↑↓ · a/d ⇆ · Enter open · / filter · g go · ? help · q quit ");
+        String::from(
+            " w/s ↑↓ · a/d ⇆ · Enter open · / filter · g go · y copy · x del · ? help · q quit ",
+        );
 
     if app.state == AppState::Rename {
         status_message = format!(

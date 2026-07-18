@@ -370,6 +370,19 @@ impl App {
         self.refresh()
     }
 
+    /// Copy the selected entry's absolute path to the system clipboard.
+    pub fn copy_selected_path(&mut self) {
+        let Some(artifact) = self.selected_artifact() else {
+            self.status_message = "Copy failed: nothing selected".to_string();
+            return;
+        };
+        let path = artifact.path.display().to_string();
+        match arboard::Clipboard::new().and_then(|mut clipboard| clipboard.set_text(path.clone())) {
+            Ok(()) => self.status_message = format!("Copied {path}"),
+            Err(error) => self.status_message = format!("Copy failed: {error}"),
+        }
+    }
+
     pub fn commit_rename(&mut self) -> Result<()> {
         let new_name = self.rename_input.trim().to_string();
         let Some(artifact) = self.selected_artifact() else {

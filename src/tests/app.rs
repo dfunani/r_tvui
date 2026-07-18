@@ -335,6 +335,37 @@ mod test_app {
     }
 
     #[test]
+    fn copy_selected_path_reports_status() {
+        let (dir, mut app) = app_with_files(&[("note.txt", "hi")]);
+        app.reload().unwrap();
+        let expected = dir
+            .path()
+            .join("note.txt")
+            .canonicalize()
+            .unwrap_or_else(|_| dir.path().join("note.txt"));
+        app.copy_selected_path();
+        // Clipboard may be unavailable in headless CI; either outcome is fine so
+        // long as we surface a status that mentions the path or a clear failure.
+        assert!(
+            app.status_message.contains("Copied") || app.status_message.starts_with("Copy failed"),
+            "unexpected status: {}",
+            app.status_message
+        );
+        if app.status_message.starts_with("Copied") {
+            assert!(app.status_message.contains(&expected.display().to_string()));
+        }
+    }
+
+    #[test]
+    fn copy_selected_path_without_selection() {
+        let (_dir, mut app) = app_with_files(&[("note.txt", "hi")]);
+        app.reload().unwrap();
+        app.scroll_state.select(None);
+        app.copy_selected_path();
+        assert!(app.status_message.contains("nothing selected"));
+    }
+
+    #[test]
     fn commit_goto_jumps_to_directory() {
         let target = tempfile::tempdir().unwrap();
         let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);

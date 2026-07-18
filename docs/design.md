@@ -38,7 +38,7 @@ Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc s
 
 **North star:** Responsiveness (non-blocking I/O, predictable ops) with a **small, shippable core**.
 
-**Today on master:** async browse + filter + rename + delete (confirm + trash) + themes/sort/hidden + text/folder preview + go-to path + help overlay. Clipboard, bookmarks, and history are **not finished** (see §4 / §9 / §16).
+**Today on master:** async browse + filter + rename + delete (confirm + trash) + copy path + themes/sort/hidden + text/folder preview + go-to path + help overlay. Bookmarks and history are **not finished** (see §4 / §9 / §16).
 
 ---
 
@@ -56,7 +56,7 @@ Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc s
 
 | Persona | Needs | Support on master |
 |--------|--------|-------------------|
-| **Dev on large repos** | Fast navigation, filter, sort, path copy | **Partial** — async listing, 50k cap, cache, filter/sort; copy-path not yet |
+| **Dev on large repos** | Fast navigation, filter, sort, path copy | **Yes** — async listing, 50k cap, cache, filter/sort, `y` copy path |
 | **Ops / SRE** | Clear errors, trash, open with system app | **Partial** — open + trash/delete ship; listing errors often silent |
 | **Minimalist** | Works out of the box, saved config | **Yes** — defaults + `~/.r_tvui/.config.toml` |
 
@@ -70,7 +70,7 @@ Milestones **M0–M4** below are the **product roadmap**. (Separate IDs in [revi
 |-------|--------|---------------|-------------------------|
 | **M0 — Spike** | TUI frame, list one directory, quit | Opens, lists cwd, quits cleanly | **Done** (WASD nav, not vim `j`/`k`) |
 | **M1 — MVP browser** | Navigate, filter, sort, text preview, config, themes | Daily-usable local browser | **Done** (no multi-tab; WASD nav) |
-| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Partial** — rename + delete; clipboard/bookmarks/history missing |
+| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Partial** — rename + delete + copy path; bookmarks/history missing |
 | **M2.5 — Async** | Async listing, directory cache, generation guards, background open | Large dirs stay responsive | **Done** |
 | **M3 — Power** | Split dual-cwd, image preview, git column, external tools | Power-user parity | **Planned** |
 | **M4 — Plugins** | Previewer/spotter API, third-party extensions | Extensibility | **Planned** |
@@ -90,7 +90,7 @@ Early planning proposed many crates (`r-tvui_app`, `r-tvui_fs`, `r-tvui_preview`
 | Multi-tab | M1 | **No** |
 | Async listing + text preview | M1 / M2.5 | **Yes** |
 | Filter / sort / themes / rename | M1–M2 | **Yes** |
-| Delete / trash / clipboard / bookmarks / history | M2 | **Partial** — delete+trash yes; clipboard/bookmarks/history no |
+| Delete / trash / clipboard / bookmarks / history | M2 | **Partial** — delete+trash+copy yes; bookmarks/history no |
 | GoTo path / Help overlay | M1 | **Yes** |
 | Visual selection + bulk copy/move | M2+ | **No** |
 | Image preview (terminal-dependent) | M3 | **No** |
@@ -209,8 +209,7 @@ r_tvui/
     .release.yml       intended release (must be renamed to release.yml)
 ```
 
-**Stack today:** Rust 2024 edition, ratatui 0.30, tokio, clap, serde/toml, dirs, trash.  
-**Planned deps for remaining M2:** `arboard` (clipboard).
+**Stack today:** Rust 2024 edition, ratatui 0.30, tokio, clap, serde/toml, dirs, trash, arboard.
 
 ---
 
@@ -223,7 +222,7 @@ r_tvui/
 | **Listing tasks** | Browser vs side-pane requests, events | `models/client.rs` |
 | **Navigation** | Parent, enter dir, scroll, home→root | `events/utils.rs` |
 | **Side pane** | Folder listing / file preview | `models/previewer.rs` + `ui/` |
-| **File ops** | Rename, delete (confirm + optional trash) | `models/app.rs` |
+| **File ops** | Rename, delete (confirm + optional trash), copy path | `models/app.rs` |
 | **Config** | Theme, sort, trash flag, bookmarks, preview | `config/` |
 | **Themes** | Forest, Midnight, Solar, Mono | `config/app.rs` |
 
@@ -266,6 +265,7 @@ r_tvui/
 | `t` | Cycle theme (saved to config) | Shipping |
 | `r` | Refresh listing (clears cache) | Shipping |
 | `x` / `Delete` | Delete selected entry (confirm; trash if `enable_trash`) | Shipping |
+| `y` | Copy selected path to clipboard | Shipping |
 | `F2` | Rename | Shipping |
 | `g` | Go to path (type path, Enter jumps; `~` ok) | Shipping |
 | `?` | Help overlay | Shipping |
@@ -278,7 +278,6 @@ r_tvui/
 | `j` / `k` / `l` | Vim-style nav (optional alias) |
 | `G` | Jump to `$HOME` |
 | `u` / `i` | History back / forward |
-| `y` | Copy path to clipboard |
 | `b` / `1`–`9` | Bookmark / jump |
 | `P` | Cycle preview mode (`OnMove` / `Always` / `Never`) |
 
@@ -297,6 +296,7 @@ r_tvui/
 
 - **Rename:** `F2`, inline buffer, validate before apply — **shipping**.
 - **Delete:** `x`/`Delete` → confirm; `y` applies. If `enable_trash` → OS trash via `trash` crate; else permanent `remove_file` / `remove_dir_all`.
+- **Copy path:** `y` in normal mode copies the selected absolute path via `arboard` (status reports success or failure).
 - **Open file:** system handler (silent no-op if spawn fails).
 
 ---
@@ -431,7 +431,7 @@ Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace 
 
 1. No explicit task cancel — generation discard only.
 2. One Tokio runtime per app instance.
-3. M2 incomplete: no clipboard, bookmarks, history (delete/rename ship).
+3. M2 incomplete: no bookmarks or history (delete/rename/copy ship).
 4. GoTo, Help, and Confirm (delete) ship.
 5. `h`/`Home` → `/`, not `$HOME`; no `G` home jump.
 6. `partial` (50k cap) not shown in UI; async list errors may look like empty dirs.
@@ -443,7 +443,7 @@ Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace 
 
 | Priority | Task |
 |----------|------|
-| **High** | M2 remainder: clipboard (`y` + `arboard`), bookmarks, history |
+| **High** | M2 remainder: bookmarks, history |
 | **Medium** | `P` preview cycle; rename CI workflows; `fmt --check`; clippy `-D warnings` |
 | **Low** | `$HOME` jump; surface `partial`; abort in-flight listing |
 | **Low** | Multi-tab; git column (M3) |

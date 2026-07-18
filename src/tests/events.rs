@@ -359,6 +359,20 @@ mod test_events {
         assert!(app.status_message.contains("Deleted"));
     }
 
+    #[test]
+    fn copy_path_key_sets_status() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('y')).unwrap(),
+            AppState::Active
+        );
+        assert!(
+            app.status_message.contains("Copied") || app.status_message.starts_with("Copy failed"),
+            "unexpected status: {}",
+            app.status_message
+        );
+    }
+
     // ---- option keys (persist to a sandboxed HOME) -------------------------
 
     #[test]
