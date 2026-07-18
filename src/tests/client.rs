@@ -10,7 +10,10 @@ mod test_client {
     use crate::models::previewer::Previewer;
 
     fn options() -> ArtifactOptions {
-        ArtifactOptions { show_hidden: true, sort: ArtifactSort::Name }
+        ArtifactOptions {
+            show_hidden: true,
+            sort: ArtifactSort::Name,
+        }
     }
 
     /// Drain the client until an event arrives or the timeout elapses.
@@ -39,10 +42,16 @@ mod test_client {
         client.send(dir.path().to_path_buf(), 7, options());
 
         match wait_for_event(&mut client) {
-            AsyncEvents::BrowserDone { generation, artifacts, path } => {
+            AsyncEvents::BrowserDone {
+                generation,
+                artifacts,
+                path,
+                error,
+            } => {
                 assert_eq!(generation, 7);
                 assert_eq!(path, dir.path());
                 assert_eq!(artifacts.artifacts.len(), 1);
+                assert!(error.is_none());
             }
             _ => panic!("expected BrowserDone"),
         }
@@ -53,8 +62,11 @@ mod test_client {
         let mut client = AsyncEventClient::new();
         client.send(PathBuf::from("/no/such/rtvui/dir"), 1, options());
         match wait_for_event(&mut client) {
-            AsyncEvents::BrowserDone { artifacts, .. } => {
+            AsyncEvents::BrowserDone {
+                artifacts, error, ..
+            } => {
                 assert!(artifacts.artifacts.is_empty());
+                assert!(error.is_some());
             }
             _ => panic!("expected BrowserDone"),
         }
@@ -69,7 +81,10 @@ mod test_client {
         client.send_folder_preview(dir.path().to_path_buf(), "title".to_string(), 3, options());
 
         match wait_for_event(&mut client) {
-            AsyncEvents::FolderPreviewDone { generation, previewer } => {
+            AsyncEvents::FolderPreviewDone {
+                generation,
+                previewer,
+            } => {
                 assert_eq!(generation, 3);
                 match previewer {
                     Previewer::Folder(folder) => {
@@ -93,7 +108,10 @@ mod test_client {
         client.send_previewer(file, "note".to_string(), 5);
 
         match wait_for_event(&mut client) {
-            AsyncEvents::PreviewerDone { generation, previewer } => {
+            AsyncEvents::PreviewerDone {
+                generation,
+                previewer,
+            } => {
                 assert_eq!(generation, 5);
                 match previewer {
                     Previewer::Preview(preview) => assert_eq!(preview.body, "preview body"),
@@ -107,7 +125,11 @@ mod test_client {
     #[test]
     fn send_previewer_falls_back_on_unreadable_file() {
         let mut client = AsyncEventClient::new();
-        client.send_previewer(PathBuf::from("/no/such/rtvui/file.txt"), "missing".to_string(), 9);
+        client.send_previewer(
+            PathBuf::from("/no/such/rtvui/file.txt"),
+            "missing".to_string(),
+            9,
+        );
         match wait_for_event(&mut client) {
             AsyncEvents::PreviewerDone { previewer, .. } => match previewer {
                 Previewer::Preview(preview) => {

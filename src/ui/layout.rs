@@ -18,9 +18,11 @@ pub fn get_path_bar<'a>(app: &'a App) -> Line<'a> {
 pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
     let accent = app.palette().accent;
     let mut status_message =
-        String::from(
-            " w/s ↑↓ · a/d ⇆ · Enter open · / filter · g go · y copy · x del · ? help · q quit ",
-        );
+        String::from(" w/s · a/d · Enter · / g · y b · u/i · G · x · P · ? · q ");
+
+    if app.listing_partial && app.state == AppState::Active && app.status_message.is_empty() {
+        status_message = format!(" truncated (50k) · {status_message}");
+    }
 
     if app.state == AppState::Rename {
         status_message = format!(
@@ -28,15 +30,9 @@ pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
             app.rename_input
         );
     } else if app.state == AppState::GoTo {
-        status_message = format!(
-            " go to: {}▏ · Enter jump · Esc cancel ",
-            app.goto_input
-        );
+        status_message = format!(" go to: {}▏ · Enter jump · Esc cancel ", app.goto_input);
     } else if app.state == AppState::Filter {
-        status_message = format!(
-            " filter: {}▏ · Esc clear ",
-            app.filter_input
-        );
+        status_message = format!(" filter: {}▏ · Esc clear ", app.filter_input);
     } else if app.state == AppState::Help {
         status_message = String::from(" help · Esc/q close ");
     } else if app.state == AppState::Confirm {

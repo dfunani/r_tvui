@@ -38,7 +38,10 @@ mod test_app {
     #[test]
     fn test_app_new() {
         let app = App::new(PathBuf::from("."), AppConfig::default()).unwrap();
-        assert_eq!(app.current_working_directory, PathBuf::from("."));
+        assert_eq!(
+            app.current_working_directory,
+            PathBuf::from(".").canonicalize().unwrap()
+        );
         assert!(!app.artifacts.is_empty());
         assert_eq!(app.scroll_state.selected(), Some(0));
         assert_eq!(app.status_message, "");
@@ -83,7 +86,10 @@ mod test_app {
         app.reload().unwrap();
         assert_eq!(app.artifacts.len(), 1);
         assert_eq!(app.artifacts[0].name, "test.txt");
-        assert_eq!(app.artifacts[0].path, dir.path().join("test.txt"));
+        assert_eq!(
+            app.artifacts[0].path,
+            dir.path().join("test.txt").canonicalize().unwrap()
+        );
         assert_eq!(app.artifacts[0].artifact_type, ArtifactType::File);
         assert_eq!(app.artifacts[0].size, 4);
     }
@@ -223,6 +229,7 @@ mod test_app {
             generation: app.generation,
             artifacts: listing,
             path: target.clone(),
+            error: None,
         });
         assert_eq!(app.current_working_directory, target);
         assert_eq!(app.artifacts.len(), 1);
@@ -242,6 +249,7 @@ mod test_app {
                 partial: false,
             },
             path: PathBuf::from("/tmp/ghost"),
+            error: None,
         });
         assert_eq!(app.artifacts, before);
     }
@@ -408,6 +416,58 @@ mod test_app {
     }
 
     #[test]
+    fn history_back_and_forward() {
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        let first_path = first.path().canonicalize().unwrap();
+        let second_path = second.path().canonicalize().unwrap();
+        let mut app = App::new(first_path.clone(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+
+        app.current_working_directory = second_path.clone();
+        app.record_history();
+        assert_eq!(app.history.len(), 2);
+
+        app.history_back().unwrap();
+        assert_eq!(app.current_working_directory, first_path);
+
+        app.history_forward().unwrap();
+        assert_eq!(app.current_working_directory, second_path);
+
+        app.history_forward().unwrap();
+        assert!(app.status_message.contains("newest"));
+    }
+
+    #[test]
+    fn cycle_preview_rotates_and_never_clears() {
+        use crate::tests::support::with_temp_home;
+
+        with_temp_home(|_| {
+            let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+            assert_eq!(app.config.settings.preview, Preview::OnMove);
+            app.cycle_preview();
+            assert_eq!(app.config.settings.preview, Preview::Always);
+            app.cycle_preview();
+            assert_eq!(app.config.settings.preview, Preview::Never);
+            app.request_previewer();
+            assert!(matches!(app.previewer, Previewer::Empty));
+            app.cycle_preview();
+            assert_eq!(app.config.settings.preview, Preview::OnMove);
+        });
+    }
+
+    #[test]
+    fn jump_home_goes_to_user_home() {
+        use crate::tests::support::with_temp_home;
+
+        with_temp_home(|home| {
+            let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+            app.jump_home().unwrap();
+            assert_eq!(app.current_working_directory, home.canonicalize().unwrap());
+        });
+    }
+
+    #[test]
     fn commit_goto_jumps_to_directory() {
         let target = tempfile::tempdir().unwrap();
         let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
@@ -510,7 +570,10 @@ mod test_app {
         let cwd = app.current_working_directory.clone();
         app.cache.insert(
             cwd,
-            ArtifactListResult { artifacts: vec![artifact("cached.txt")], partial: false },
+            ArtifactListResult {
+                artifacts: vec![artifact("cached.txt")],
+                partial: false,
+            },
         );
         app.async_reload().unwrap();
         assert_eq!(app.artifacts.len(), 1);

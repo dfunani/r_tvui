@@ -95,6 +95,33 @@ mod test_events {
         assert!(app.current_working_directory.components().count() <= 1);
     }
 
+    #[test]
+    fn capital_g_jumps_to_home() {
+        with_temp_home(|home| {
+            let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+            handle_key_events_normal_mode(&mut app, ch('G')).unwrap();
+            assert_eq!(app.current_working_directory, home.canonicalize().unwrap());
+        });
+    }
+
+    #[test]
+    fn history_keys_navigate() {
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        let first_path = first.path().canonicalize().unwrap();
+        let second_path = second.path().canonicalize().unwrap();
+        let mut app = App::new(first_path.clone(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+        app.current_working_directory = second_path.clone();
+        app.record_history();
+
+        handle_key_events_normal_mode(&mut app, ch('u')).unwrap();
+        assert_eq!(app.current_working_directory, first_path);
+
+        handle_key_events_normal_mode(&mut app, ch('i')).unwrap();
+        assert_eq!(app.current_working_directory, second_path);
+    }
+
     // ---- normal-mode transitions ------------------------------------------
 
     #[test]
@@ -247,10 +274,19 @@ mod test_events {
             AppState::Active
         );
 
-        assert_eq!(handle_key_events_go_to_mode(&mut app, ch('x')).unwrap(), AppState::GoTo);
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, ch('x')).unwrap(),
+            AppState::GoTo
+        );
         assert_eq!(app.goto_input, "x");
-        assert_eq!(handle_key_events_confirm_mode(&mut app, ch('x')).unwrap(), AppState::Confirm);
-        assert_eq!(handle_key_events_help_mode(&mut app, ch('x')).unwrap(), AppState::Help);
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('x')).unwrap(),
+            AppState::Confirm
+        );
+        assert_eq!(
+            handle_key_events_help_mode(&mut app, ch('x')).unwrap(),
+            AppState::Help
+        );
     }
 
     #[test]
@@ -262,20 +298,29 @@ mod test_events {
             AppState::GoTo
         );
         assert_eq!(app.goto_input, "q");
-        assert_eq!(handle_key_event_go_to_mode(&mut app, ch('x')).unwrap(), AppState::GoTo);
+        assert_eq!(
+            handle_key_event_go_to_mode(&mut app, ch('x')).unwrap(),
+            AppState::GoTo
+        );
         assert_eq!(app.goto_input, "qx");
 
         assert_eq!(
             handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(),
             AppState::Confirm
         );
-        assert_eq!(handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(), AppState::Confirm);
+        assert_eq!(
+            handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(),
+            AppState::Confirm
+        );
 
         assert_eq!(
             handle_key_event_help_mode(&mut app, code(KeyCode::Esc)).unwrap(),
             AppState::Help
         );
-        assert_eq!(handle_key_event_help_mode(&mut app, ch('x')).unwrap(), AppState::Help);
+        assert_eq!(
+            handle_key_event_help_mode(&mut app, ch('x')).unwrap(),
+            AppState::Help
+        );
     }
 
     #[test]

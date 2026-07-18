@@ -8,17 +8,19 @@ use rtvui_core::Artifact;
 
 const TABLE_COLUMNS: [&str; 3] = ["NAME", "SIZE", "MODIFIED"];
 
-const HELP_LINES: [&str; 16] = [
+const HELP_LINES: [&str; 18] = [
     "Navigation",
     "  w/s or ↑↓     move selection",
     "  a/d or ←→     parent / enter directory",
     "  Enter         open file (or enter directory)",
     "  h / Home      jump to filesystem root",
+    "  G             jump to $HOME",
+    "  u / i         history back / forward",
     "  g             go to path  ·  / filter  ·  r refresh",
     "",
     "Options",
-    "  t theme  ·  o sort  ·  . hidden  ·  F2 rename  ·  x/Del delete  ·  y copy",
-    "  b bookmark cwd  ·  1-9 jump bookmark",
+    "  t theme  ·  o sort  ·  . hidden  ·  P preview  ·  F2 rename",
+    "  x/Del delete  ·  y copy path  ·  b bookmark  ·  1-9 jump",
     "",
     "Modes",
     "  Esc           cancel filter / go-to / rename / help / delete",

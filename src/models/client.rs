@@ -15,6 +15,7 @@ pub enum AsyncEvents {
         generation: u64,
         artifacts: ArtifactListResult,
         path: PathBuf,
+        error: Option<String>,
     },
     FolderPreviewDone {
         generation: u64,
@@ -46,10 +47,15 @@ impl AsyncEventClient {
         let sender = self.sender.clone();
         self.runtime.spawn(async move {
             let result = get_artifact_entries_async(path.clone(), options).await;
+            let (artifacts, error) = match result {
+                Ok(artifacts) => (artifacts, None),
+                Err(error) => (ArtifactListResult::default(), Some(format!("{error:?}"))),
+            };
             let payload = AsyncEvents::BrowserDone {
                 generation,
-                artifacts: result.unwrap_or_default(),
+                artifacts,
                 path,
+                error,
             };
             let _ = sender.send(payload).await;
         });

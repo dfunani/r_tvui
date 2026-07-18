@@ -57,21 +57,24 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 | `d` | Enter selected **directory** |
 | `Enter` | Open selected item with the system default app (`open` / `xdg-open` / Windows `start`) |
 | `h` or `Home` | Jump to filesystem root (`/`) |
+| `G` | Jump to `$HOME` |
 | `/` | Filter listing by name (type to narrow; Esc clears) |
 | `g` | Go to path (type path, Enter jumps; `~` supported) |
 | `?` | Help overlay |
 | `t` | Cycle theme (saved) |
 | `o` | Cycle sort (name / size / modified) |
 | `.` | Toggle hidden files |
+| `P` | Cycle preview mode (`OnMove` / `Always` / `Never`) |
 | `r` | Refresh listing |
 | `F2` | Rename selected entry |
 | `x` or `Delete` | Delete selected entry (confirm; trash if enabled) |
 | `y` | Copy selected path to clipboard |
 | `b` | Bookmark current directory (up to 9) |
 | `1`–`9` | Jump to bookmark slot |
+| `u` / `i` | History back / forward |
 | `q` or `Esc` | Quit |
 
-> **Note:** `d` enters folders; `Enter` opens files (and other types) externally. This differs from some vim-style explorers that use `l` / `Enter` only for navigation. Delete uses `x`/`Delete` because `d` is already enter-dir.
+> **Note:** `d` enters folders; `Enter` opens files (and other types) externally. Delete uses `x`/`Delete` because `d` is already enter-dir.
 
 ### Filter / go-to / rename / help / confirm modes
 
@@ -89,9 +92,6 @@ Directories are listed with a trailing `/`. The selected row is highlighted (rev
 |-----|----------------|
 | `j` / `k` | Alternative move up/down |
 | `l` | Enter directory |
-| `G` | Jump to `$HOME` |
-| `P` | Cycle preview mode |
-| History (`u` / `i`) | See [design.md](docs/design.md) / [tutorial.md](docs/tutorial.md) |
 
 ## Configuration
 
@@ -111,7 +111,7 @@ Example fields (TOML):
 | `settings.preview` | `OnMove`, `Always`, `Never` | `OnMove` |
 | `cache.bookmarks` | list of paths | `[]` |
 
-Theme, sort, hidden, trash, and bookmarks persist from the UI. Set `enable_trash = false` for permanent deletes.
+Theme, sort, hidden, trash, preview, and bookmarks persist from the UI. Set `enable_trash = false` for permanent deletes.
 
 ## Development
 
@@ -132,6 +132,8 @@ cargo clippy --workspace --all-targets
 
 - **[design.md](docs/design.md)** — architecture and phased design
 - **[tutorial.md](docs/tutorial.md)** — rebuild from scratch; release & publishing
+- **[INSTALL.md](docs/INSTALL.md)** — install details
+- **[CHANGELOG.md](CHANGELOG.md)** — release notes
 - **[Project website](https://github.com/dfunani/r_tvui_web)** — Next.js site for the project
 
 ## License

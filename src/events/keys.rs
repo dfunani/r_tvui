@@ -46,6 +46,22 @@ pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Resu
             app.bookmark_cwd();
             Ok(AppState::Active)
         }
+        KeyCode::Char('u') => {
+            app.history_back()?;
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('i') => {
+            app.history_forward()?;
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('P') => {
+            app.cycle_preview();
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('G') => {
+            app.jump_home()?;
+            Ok(AppState::Active)
+        }
         KeyCode::Char(digit) if digit.is_ascii_digit() && digit != '0' => {
             let slot = digit.to_digit(10).unwrap() as usize;
             app.jump_to_bookmark(slot)?;

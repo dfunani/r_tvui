@@ -30,6 +30,9 @@ pub struct App {
     pub previewer: Previewer,
     pub previewer_generation: u64,
     pub cache: HashMap<PathBuf, ArtifactListResult>,
+    pub history: Vec<PathBuf>,
+    pub history_index: usize,
+    pub listing_partial: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -58,14 +61,15 @@ impl App {
         scroll_state.select(scroll_index);
         let async_client = AsyncEventClient::new();
         let generation = 1;
+        let start = path.canonicalize().unwrap_or(path);
         async_client.send(
-            path.clone(),
+            start.clone(),
             generation,
             Self::get_artifact_options(&config),
         );
 
         Ok(Self {
-            current_working_directory: path,
+            current_working_directory: start.clone(),
             artifacts: artifacts.clone(),
             scroll_state,
             status_message: String::new(),
@@ -81,6 +85,9 @@ impl App {
             previewer: Previewer::Empty,
             previewer_generation: 0,
             cache: HashMap::new(),
+            history: vec![start],
+            history_index: 0,
+            listing_partial: false,
         })
     }
 
@@ -209,6 +216,67 @@ impl App {
         };
     }
 
+    pub fn cycle_preview(&mut self) {
+        self.config.settings.preview = match self.config.settings.preview {
+            Preview::OnMove => Preview::Always,
+            Preview::Always => Preview::Never,
+            Preview::Never => Preview::OnMove,
+        };
+        save_config(&self.config, &get_config_path()).unwrap_or_default();
+        self.status_message = format!("Preview: {:?}", self.config.settings.preview);
+        self.request_previewer();
+    }
+
+    /// Record cwd in navigation history (truncates any forward entries).
+    pub fn record_history(&mut self) {
+        let cwd = self
+            .current_working_directory
+            .canonicalize()
+            .unwrap_or_else(|_| self.current_working_directory.clone());
+        if self.history.get(self.history_index) == Some(&cwd) {
+            return;
+        }
+        self.history.truncate(self.history_index + 1);
+        self.history.push(cwd);
+        self.history_index = self.history.len() - 1;
+    }
+
+    pub fn history_back(&mut self) -> Result<()> {
+        if self.history_index == 0 {
+            self.status_message = "History: at oldest".to_string();
+            return Ok(());
+        }
+        self.history_index -= 1;
+        self.current_working_directory = self.history[self.history_index].clone();
+        self.scroll_state.select(Some(0));
+        self.status_message = "History: back".to_string();
+        self.async_reload()
+    }
+
+    pub fn history_forward(&mut self) -> Result<()> {
+        if self.history_index + 1 >= self.history.len() {
+            self.status_message = "History: at newest".to_string();
+            return Ok(());
+        }
+        self.history_index += 1;
+        self.current_working_directory = self.history[self.history_index].clone();
+        self.scroll_state.select(Some(0));
+        self.status_message = "History: forward".to_string();
+        self.async_reload()
+    }
+
+    /// Jump to the user's home directory.
+    pub fn jump_home(&mut self) -> Result<()> {
+        let Some(home) = dirs::home_dir() else {
+            self.status_message = "Home directory unavailable".to_string();
+            return Ok(());
+        };
+        self.current_working_directory = home.canonicalize().unwrap_or(home);
+        self.scroll_state.select(Some(0));
+        self.record_history();
+        self.async_reload()
+    }
+
     /// Re-list the current directory after a change that invalidates cached
     /// listings (e.g. toggling hidden files or changing the sort order).
     pub fn refresh(&mut self) -> Result<()> {
@@ -235,16 +303,24 @@ impl App {
                 generation,
                 artifacts,
                 path,
+                error,
             } => {
                 if generation != self.generation {
                     return;
                 }
                 self.current_working_directory = path.clone();
                 self.entries_cache = artifacts.artifacts.clone();
+                self.listing_partial = artifacts.partial;
                 self.cache.insert(path, artifacts.clone());
-                // clamp selection like handle_reload does
+                if let Some(message) = error {
+                    self.status_message = format!("Error: {message}");
+                } else if artifacts.partial {
+                    self.status_message = "Listing truncated at 50,000 entries".to_string();
+                }
                 self.handle_reload(artifacts).unwrap_or_default();
-                self.request_previewer();
+                if self.config.settings.preview != Preview::Never {
+                    self.request_previewer();
+                }
             }
             AsyncEvents::FolderPreviewDone {
                 generation,
@@ -326,6 +402,7 @@ impl App {
         self.goto_input.clear();
         self.scroll_state.select(Some(0));
         self.status_message.clear();
+        self.record_history();
         self.async_reload()?;
         Ok(AppState::Active)
     }
@@ -381,6 +458,7 @@ impl App {
         self.current_working_directory = path;
         self.scroll_state.select(Some(0));
         self.status_message = format!("Jumped to bookmark {slot}");
+        self.record_history();
         self.async_reload()
     }
 

@@ -211,10 +211,16 @@ mod test_core {
         fs::write(dir.path().join("target.txt"), "t").unwrap();
         std::os::unix::fs::symlink(dir.path().join("target.txt"), dir.path().join("link.txt"))
             .unwrap();
-        let listing =
-            get_artifact_entries(&dir.path().to_path_buf(), &options(true, ArtifactSort::Name))
-                .unwrap();
-        let link = listing.artifacts.iter().find(|a| a.name == "link.txt").unwrap();
+        let listing = get_artifact_entries(
+            &dir.path().to_path_buf(),
+            &options(true, ArtifactSort::Name),
+        )
+        .unwrap();
+        let link = listing
+            .artifacts
+            .iter()
+            .find(|a| a.name == "link.txt")
+            .unwrap();
         assert_eq!(link.artifact_type, ArtifactType::Symlink);
     }
 

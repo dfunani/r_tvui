@@ -2,18 +2,20 @@
 BINARY_NAME = r_tvui
 TARGET ?= x86_64-unknown-linux-gnu
 
-.PHONY: all build run test check clean fmt lint help coverage coverage-html
+.PHONY: all build run test check clean fmt fmt-fix lint help coverage coverage-html prepare
 
-## all: Default target to format, lint, and build the project
-all: fmt lint build
+## all: Format (apply), lint, and build
+all: fmt-fix lint build
 
-prepare: check fmt lint
+## prepare: Check, format (apply), and lint before run/test
+prepare: check fmt-fix lint
 
-## build: Build the release binary using cargo
+## build: Build the debug binary
 build:
-	echo "Building release binary..."
+	echo "Building binary..."
 	cargo build --bin r_tvui
 
+## release: Build the release binary for TARGET
 release:
 	echo "Building release binary..."
 	cargo build --release --target $(TARGET)
@@ -38,22 +40,26 @@ coverage:
 coverage-html:
 	cargo llvm-cov --workspace --html --open --ignore-filename-regex $(COVERAGE_IGNORE)
 
-## check: Fast check to verify code compiles without generating binaries
+## check: Fast compile check
 check:
 	cargo check --workspace --all-targets
 
-## clean: Remove build artifacts and target folder
+## clean: Remove build artifacts
 clean:
 	echo "Cleaning up..."
 	cargo clean
 
-## fmt: Automatically format code with rustfmt
+## fmt: Check formatting (CI gate — does not write)
 fmt:
+	cargo fmt --all -- --check
+
+## fmt-fix: Apply rustfmt
+fmt-fix:
 	cargo fmt --all
 
-## lint: Check for code smells and lints using clippy
+## lint: Clippy with warnings denied
 lint:
-	cargo clippy --workspace --all-targets
+	cargo clippy --workspace --all-targets -- -D warnings
 
 ## help: Show this help message
 help:

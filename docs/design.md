@@ -1,7 +1,7 @@
 # R-TVUI — Design & implementation
 
-**Version:** 0.1.0 (`Cargo.toml`) — in progress (not a tagged production cut)  
-**Status:** Living document — describes what ships on **master today**, what is stubbed, and what is planned. For a gap audit, see **[review.md](./review.md)**.
+**Version:** 0.2.0 (`Cargo.toml`)  
+**Status:** Living document — describes what ships on **master today** and what is planned. For gap audit history, see **[review.md](./review.md)**.
 
 This document consolidates the former design spec, implementation plan, install notes, and distribution guide into a single reference for **how R-TVUI is designed and how it is built through phases**.
 
@@ -38,7 +38,7 @@ Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc s
 
 **North star:** Responsiveness (non-blocking I/O, predictable ops) with a **small, shippable core**.
 
-**Today on master:** async browse + filter + rename + delete (confirm + trash) + copy path + bookmarks + themes/sort/hidden + text/folder preview + go-to path + help overlay. History is **not finished** (see §4 / §9 / §16).
+**Today on master:** async browse + filter + rename + delete (confirm + trash) + copy path + bookmarks + history + go-to + help + themes/sort/hidden/preview cycle. Design M3+ (dual pane, images, plugins) remains planned.
 
 ---
 
@@ -70,7 +70,7 @@ Milestones **M0–M4** below are the **product roadmap**. (Separate IDs in [revi
 |-------|--------|---------------|-------------------------|
 | **M0 — Spike** | TUI frame, list one directory, quit | Opens, lists cwd, quits cleanly | **Done** (WASD nav, not vim `j`/`k`) |
 | **M1 — MVP browser** | Navigate, filter, sort, text preview, config, themes | Daily-usable local browser | **Done** (no multi-tab; WASD nav) |
-| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Partial** — rename + delete + copy + bookmarks; history missing |
+| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Done** |
 | **M2.5 — Async** | Async listing, directory cache, generation guards, background open | Large dirs stay responsive | **Done** |
 | **M3 — Power** | Split dual-cwd, image preview, git column, external tools | Power-user parity | **Planned** |
 | **M4 — Plugins** | Previewer/spotter API, third-party extensions | Extensibility | **Planned** |
@@ -90,7 +90,7 @@ Early planning proposed many crates (`r-tvui_app`, `r-tvui_fs`, `r-tvui_preview`
 | Multi-tab | M1 | **No** |
 | Async listing + text preview | M1 / M2.5 | **Yes** |
 | Filter / sort / themes / rename | M1–M2 | **Yes** |
-| Delete / trash / clipboard / bookmarks / history | M2 | **Partial** — delete+trash+copy+bookmarks yes; history no |
+| Delete / trash / clipboard / bookmarks / history | M2 | **Yes** |
 | GoTo path / Help overlay | M1 | **Yes** |
 | Visual selection + bulk copy/move | M2+ | **No** |
 | Image preview (terminal-dependent) | M3 | **No** |
@@ -258,16 +258,19 @@ r_tvui/
 | `a` / `←` | Parent directory | Shipping |
 | `d` / `→` | Enter selected **directory** | Shipping |
 | `Enter` | Open file with system app, or enter directory | Shipping |
-| `h` / `Home` | Walk to filesystem root (`/`) | Shipping (not `$HOME`) |
+| `h` / `Home` | Walk to filesystem root (`/`) | Shipping |
+| `G` | Jump to `$HOME` | Shipping |
 | `/` | Filter mode (live substring filter) | Shipping |
 | `o` | Cycle sort (name / size / modified) | Shipping |
 | `.` | Toggle hidden files | Shipping |
 | `t` | Cycle theme (saved to config) | Shipping |
+| `P` | Cycle preview (`OnMove` / `Always` / `Never`) | Shipping |
 | `r` | Refresh listing (clears cache) | Shipping |
 | `x` / `Delete` | Delete selected entry (confirm; trash if `enable_trash`) | Shipping |
 | `y` | Copy selected path to clipboard | Shipping |
 | `b` | Bookmark current directory (slots 1–9) | Shipping |
 | `1`–`9` | Jump to bookmark slot | Shipping |
+| `u` / `i` | History back / forward | Shipping |
 | `F2` | Rename | Shipping |
 | `g` | Go to path (type path, Enter jumps; `~` ok) | Shipping |
 | `?` | Help overlay | Shipping |
@@ -278,9 +281,6 @@ r_tvui/
 | Key | Planned action |
 |-----|----------------|
 | `j` / `k` / `l` | Vim-style nav (optional alias) |
-| `G` | Jump to `$HOME` |
-| `u` / `i` | History back / forward |
-| `P` | Cycle preview mode (`OnMove` / `Always` / `Never`) |
 
 ### 9.4 Modes
 
@@ -312,7 +312,7 @@ r_tvui/
 3. **File:** text prefix (~64 KiB) into side pane.
 4. New selection bumps **previewer generation**; stale results dropped.
 
-`OnMove` and `Always` currently behave the same; only `Never` disables the pane. A `P` cycle is planned.
+`OnMove` and `Always` both refresh the side pane on selection change and after listings; `Never` disables it. `P` cycles the mode and persists to config.
 
 ### 10.2 Planned (M3+)
 
@@ -384,7 +384,7 @@ Makefile today: `make fmt` **mutates**; `make lint` does **not** pass `-D warnin
 ### 14.2 CI
 
 Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace tests.  
-**Blocker:** workflow files are still named `.github.yml` / `.release.yml` under `.github/workflows/` — GitHub ignores hidden workflow filenames. Rename to `ci.yml` / `release.yml` before relying on CI.
+Workflows: `.github/workflows/ci.yml` and `release.yml`.
 
 ### 14.3 Tests in tree
 
@@ -429,26 +429,21 @@ Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace 
 
 ## 16. Known limitations & roadmap
 
-### 16.1 Current limitations (0.1.0)
+### 16.1 Current limitations (0.2.0)
 
 1. No explicit task cancel — generation discard only.
 2. One Tokio runtime per app instance.
-3. M2 incomplete: no history (delete/rename/copy/bookmarks ship).
-4. GoTo, Help, and Confirm (delete) ship.
-5. `h`/`Home` → `/`, not `$HOME`; no `G` home jump.
-6. `partial` (50k cap) not shown in UI; async list errors may look like empty dirs.
-7. No tabs, visual multi-select, or copy/move queue.
-8. CI/release workflows not discoverable until renamed (see §14.2).
-9. Version tags / Cargo / this doc historically drifted — treat **Cargo.toml** as source of truth.
+3. No tabs, visual multi-select, or copy/move queue.
+4. `OnMove` vs `Always` are close; only `Never` fully disables the pane.
+5. Very large single directories still heavy at read time (capped; UI notes truncation).
 
 ### 16.2 Recommended next steps
 
 | Priority | Task |
 |----------|------|
-| **High** | M2 remainder: history (`u` / `i`) |
-| **Medium** | `P` preview cycle; rename CI workflows; `fmt --check`; clippy `-D warnings` |
-| **Low** | `$HOME` jump; surface `partial`; abort in-flight listing |
+| **Medium** | Abort in-flight listing (`JoinHandle`); richer Always vs OnMove |
 | **Low** | Multi-tab; git column (M3) |
+| **Release** | Tag `v0.2.0` after CI green on `ci.yml` |
 
 ---
 
