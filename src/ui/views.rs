@@ -1,18 +1,28 @@
-use super::utils::{display_artifact_name, read_artifact_content};
+use super::utils::display_artifact_name;
+use crate::config::app::Palette;
 use ratatui::layout::Constraint;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 use rtvui_core::Artifact;
 
 const TABLE_COLUMNS: [&str; 3] = ["NAME", "SIZE", "MODIFIED"];
 
-pub fn get_preview_display<'a>(artifact: &'a Artifact, title: String) -> Paragraph<'a> {
-    let content = read_artifact_content(artifact)
-        .unwrap_or_else(|_| "Content Preview Unavailable".to_string());
-    Paragraph::new(content).block(Block::default().borders(Borders::ALL).title(title))
+pub fn get_preview_text<'a>(body: &str, title: String, palette: Palette) -> Paragraph<'a> {
+    Paragraph::new(body.to_string())
+        .style(Style::new().fg(palette.text).bg(palette.background))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::new().fg(palette.accent))
+                .title(title),
+        )
 }
 
-pub fn get_artifact_display<'a>(artifacts: &[Artifact], title: String) -> Table<'a> {
+pub fn get_artifact_display<'a>(
+    artifacts: &[Artifact],
+    title: String,
+    palette: Palette,
+) -> Table<'a> {
     Table::new(
         artifacts
             .iter()
@@ -30,11 +40,19 @@ pub fn get_artifact_display<'a>(artifacts: &[Artifact], title: String) -> Table<
             Constraint::Length(20),
         ],
     )
-    .header(Row::new(TABLE_COLUMNS).style(Style::new().add_modifier(Modifier::BOLD)))
+    .style(Style::new().fg(palette.text).bg(palette.background))
+    .header(
+        Row::new(TABLE_COLUMNS).style(Style::new().add_modifier(Modifier::BOLD).fg(palette.header)),
+    )
     .row_highlight_style(
         Style::new()
             .add_modifier(Modifier::REVERSED)
-            .fg(Color::Cyan),
+            .fg(palette.highlight),
     )
-    .block(Block::default().borders(Borders::ALL).title(title))
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::new().fg(palette.accent))
+            .title(title),
+    )
 }

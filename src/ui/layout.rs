@@ -1,23 +1,30 @@
-use crate::models::app::App;
+use crate::models::app::{App, AppState};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
 pub fn get_path_bar<'a>(app: &'a App) -> Line<'a> {
+    let accent = app.palette().accent;
     Line::from(vec![
         Span::raw(" path: "),
         Span::styled(
             app.current_working_directory.display().to_string(),
-            Style::new().add_modifier(Modifier::BOLD),
+            Style::new().add_modifier(Modifier::BOLD).fg(accent),
         ),
     ])
 }
 
 pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
+    let accent = app.palette().accent;
     let mut status_message = String::from(" w/s ↑↓ · a/d ⇆ · d enter· q quit ");
 
-    if !app.status_message.is_empty() {
+    if app.state == AppState::Rename {
+        status_message = format!(
+            " rename: {}▏ · Enter confirm · Esc cancel ",
+            app.rename_input
+        );
+    } else if !app.status_message.is_empty() {
         status_message = format!(" {} · {} ", app.status_message, status_message);
     }
 
@@ -25,7 +32,7 @@ pub fn get_status_bar<'a>(app: &'a App) -> Paragraph<'a> {
         Span::raw(" status: "),
         Span::styled(
             status_message.to_string(),
-            Style::new().add_modifier(Modifier::BOLD),
+            Style::new().add_modifier(Modifier::BOLD).fg(accent),
         ),
     ]);
     Paragraph::new(bar)

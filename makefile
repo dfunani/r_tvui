@@ -1,8 +1,8 @@
 # Variables
-BINARY_NAME=r_tvui
+BINARY_NAME = r_tvui
 TARGET ?= x86_64-unknown-linux-gnu
 
-.PHONY: all build run test check clean fmt lint help
+.PHONY: all build run test check clean fmt lint help coverage coverage-html
 
 ## all: Default target to format, lint, and build the project
 all: fmt lint build
@@ -12,7 +12,7 @@ prepare: check fmt lint
 ## build: Build the release binary using cargo
 build:
 	echo "Building release binary..."
-	cargo build
+	cargo build --bin r_tvui
 
 release:
 	echo "Building release binary..."
@@ -25,6 +25,18 @@ run: prepare
 ## test: Run all tests
 test: prepare
 	cargo test --workspace --all-targets
+
+# Pure I/O shells excluded from coverage: program bootstrap, the blocking
+# terminal event loop, and the OS process-spawn wrapper. See docs/test.md.
+COVERAGE_IGNORE = 'src/(main\.rs|events/app\.rs|os/mod\.rs)'
+
+## coverage: Print a line/region coverage summary for the whole workspace
+coverage:
+	cargo llvm-cov --workspace --summary-only --ignore-filename-regex $(COVERAGE_IGNORE)
+
+## coverage-html: Generate an HTML coverage report and open it
+coverage-html:
+	cargo llvm-cov --workspace --html --open --ignore-filename-regex $(COVERAGE_IGNORE)
 
 ## check: Fast check to verify code compiles without generating binaries
 check:
