@@ -9,30 +9,31 @@ use std::path::PathBuf;
 use crate::config::app::{AppConfig, Palette, Preview, Sort, Themes};
 use crate::config::utils::{get_config_path, save_config};
 use crate::models::client::{AsyncEventClient, AsyncEvents};
+use crate::models::pane::BrowserPane;
 use crate::models::previewer::Previewer;
 
-pub struct App {
-    pub current_working_directory: PathBuf,
-    pub artifacts: Vec<Artifact>,
-    pub scroll_state: TableState,
+const MAX_TABS: usize = 9;
 
+pub struct App {
+    pub tabs: Vec<BrowserPane>,
+    pub active_tab: usize,
+    /// When set, UI shows `active_tab` | `split_tab` side by side.
+    pub split_tab: Option<usize>,
     pub status_message: String,
     pub state: AppState,
-    pub filter_input: String,
     pub rename_input: String,
     pub goto_input: String,
-    pub entries_cache: Vec<Artifact>,
-    pub entries_filtered: Vec<Artifact>,
-
     pub config: AppConfig,
     pub async_client: AsyncEventClient,
-    pub generation: u64,
-    pub previewer: Previewer,
-    pub previewer_generation: u64,
     pub cache: HashMap<PathBuf, ArtifactListResult>,
-    pub history: Vec<PathBuf>,
-    pub history_index: usize,
-    pub listing_partial: bool,
+    /// File queued for `$EDITOR`; the event loop suspends the terminal,
+    /// runs the editor, and restores the TUI.
+    pub pending_editor: Option<PathBuf>,
+    /// Globally unique listing-request counter (never reused across tabs, so
+    /// async results can only ever match the pane that issued them).
+    next_generation: u64,
+    /// Globally unique previewer-request counter (same uniqueness contract).
+    next_previewer_generation: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -51,14 +52,6 @@ impl App {
     pub fn new(path: PathBuf, config: AppConfig) -> Result<Self> {
         let result = get_artifact_entries(&path, &Self::get_artifact_options(&config));
         let artifact_list = result.unwrap_or_else(|_| ArtifactListResult::default());
-        let mut scroll_state = TableState::default();
-        let mut scroll_index = None;
-        let artifacts = artifact_list.artifacts;
-
-        if !artifacts.is_empty() {
-            scroll_index = Some(0);
-        }
-        scroll_state.select(scroll_index);
         let async_client = AsyncEventClient::new();
         let generation = 1;
         let start = path.canonicalize().unwrap_or(path);
@@ -68,27 +61,74 @@ impl App {
             Self::get_artifact_options(&config),
         );
 
+        let mut pane = BrowserPane::from_listing(start, artifact_list, generation);
+        pane.refresh_git_marks();
+
         Ok(Self {
-            current_working_directory: start.clone(),
-            artifacts: artifacts.clone(),
-            scroll_state,
+            tabs: vec![pane],
+            active_tab: 0,
+            split_tab: None,
             status_message: String::new(),
             state: AppState::Active,
-            filter_input: String::new(),
             rename_input: String::new(),
             goto_input: String::new(),
-            entries_cache: artifacts.clone(),
-            entries_filtered: artifacts.clone(),
             config,
             async_client,
-            generation,
-            previewer: Previewer::Empty,
-            previewer_generation: 0,
             cache: HashMap::new(),
-            history: vec![start],
-            history_index: 0,
-            listing_partial: false,
+            pending_editor: None,
+            next_generation: generation,
+            next_previewer_generation: 0,
         })
+    }
+
+    pub fn pane(&self) -> &BrowserPane {
+        &self.tabs[self.active_tab]
+    }
+
+    pub fn pane_mut(&mut self) -> &mut BrowserPane {
+        &mut self.tabs[self.active_tab]
+    }
+
+    // --- Compatibility accessors used across UI / events / tests ---
+
+    pub fn current_working_directory(&self) -> &PathBuf {
+        &self.pane().current_working_directory
+    }
+
+    pub fn current_working_directory_mut(&mut self) -> &mut PathBuf {
+        &mut self.pane_mut().current_working_directory
+    }
+
+    pub fn scroll_state(&self) -> &TableState {
+        &self.pane().scroll_state
+    }
+
+    pub fn scroll_state_mut(&mut self) -> &mut TableState {
+        &mut self.pane_mut().scroll_state
+    }
+
+    pub fn entries_filtered(&self) -> &[Artifact] {
+        &self.pane().entries_filtered
+    }
+
+    pub fn entries_cache(&self) -> &[Artifact] {
+        &self.pane().entries_cache
+    }
+
+    pub fn filter_input(&self) -> &str {
+        &self.pane().filter_input
+    }
+
+    pub fn filter_input_mut(&mut self) -> &mut String {
+        &mut self.pane_mut().filter_input
+    }
+
+    pub fn listing_partial(&self) -> bool {
+        self.pane().listing_partial
+    }
+
+    pub fn previewer(&self) -> &Previewer {
+        &self.pane().previewer
     }
 
     pub fn get_artifact_options(config: &AppConfig) -> ArtifactOptions {
@@ -104,106 +144,74 @@ impl App {
     }
 
     pub fn reload(&mut self) -> Result<()> {
-        let result = get_artifact_entries(
-            &self.current_working_directory,
-            &Self::get_artifact_options(&self.config),
-        );
-
-        match result {
-            Ok(artifacts) => {
-                self.handle_reload(artifacts)?;
-            }
-            Err(e) => {
-                self.handle_reload_error(e)?;
-            }
+        let path = self.pane().current_working_directory.clone();
+        let options = Self::get_artifact_options(&self.config);
+        match get_artifact_entries(&path, &options) {
+            Ok(artifacts) => self.handle_reload(artifacts)?,
+            Err(e) => self.handle_reload_error(e)?,
         }
-
         Ok(())
     }
 
     pub fn async_reload(&mut self) -> Result<()> {
-        self.generation += 1;
-        if let Some(cached) = self.cache.get(&self.current_working_directory).cloned() {
-            self.entries_cache = cached.artifacts.clone();
+        let path = self.pane().current_working_directory.clone();
+        self.next_generation += 1;
+        let generation = self.next_generation;
+        self.pane_mut().generation = generation;
+        if let Some(cached) = self.cache.get(&path).cloned() {
             self.handle_reload(cached).unwrap_or_default();
             self.request_previewer();
         }
-        self.async_client.send(
-            self.current_working_directory.clone(),
-            self.generation,
-            Self::get_artifact_options(&self.config),
-        );
+        let options = Self::get_artifact_options(&self.config);
+        self.async_client.send(path, generation, options);
         Ok(())
     }
 
     pub fn request_previewer(&mut self) {
-        self.previewer_generation += 1;
-        let generation = self.previewer_generation;
+        let preview = self.config.settings.preview;
+        let options = Self::get_artifact_options(&self.config);
+        self.next_previewer_generation += 1;
+        let generation = self.next_previewer_generation;
+        let pane = self.pane_mut();
+        pane.previewer_generation = generation;
 
-        let Some(selection) = self.scroll_state.selected() else {
-            self.previewer = Previewer::Empty;
+        let Some(artifact) = pane.selected_artifact().cloned() else {
+            pane.previewer = Previewer::Empty;
             return;
         };
-        let Some(artifact) = self.entries_filtered.get(selection) else {
-            self.previewer = Previewer::Empty;
-            return;
-        };
-        if self.config.settings.preview == Preview::Never {
-            self.previewer = Previewer::Empty;
+        if preview == Preview::Never {
+            pane.previewer = Previewer::Empty;
             return;
         }
 
         let path = artifact.path.clone();
         let title = artifact.name.clone();
-        if artifact.artifact_type == ArtifactType::File {
+        let is_file = artifact.artifact_type == ArtifactType::File;
+        if is_file {
             self.async_client.send_previewer(path, title, generation);
         } else {
-            self.async_client.send_folder_preview(
-                path,
-                title,
-                generation,
-                Self::get_artifact_options(&self.config),
-            );
+            self.async_client
+                .send_folder_preview(path, title, generation, options);
         }
     }
 
     fn handle_reload(&mut self, artifacts: ArtifactListResult) -> Result<()> {
-        self.artifacts = artifacts.artifacts;
-        self.entries_filtered = self.artifacts.clone();
-
-        if self.artifacts.is_empty() {
-            self.scroll_state.select(None);
-            return Ok(());
-        }
-
-        let selection = self.scroll_state.selected().unwrap_or(0);
-        let clamped = selection.min(self.artifacts.len() - 1);
-        self.scroll_state.select(Some(clamped));
+        self.pane_mut().apply_listing(artifacts);
+        self.pane_mut().refresh_git_marks();
         Ok(())
     }
 
     fn handle_reload_error(&mut self, error: RTVUIError) -> Result<()> {
-        self.artifacts.clear();
-        self.entries_cache.clear();
-        self.entries_filtered.clear();
+        let pane = self.pane_mut();
+        pane.artifacts.clear();
+        pane.entries_cache.clear();
+        pane.entries_filtered.clear();
         self.status_message = format!("Error: {error:?}");
         Ok(())
     }
 
     pub fn filter(&mut self) -> Result<()> {
-        self.entries_filtered = self
-            .entries_cache
-            .iter()
-            .filter(|artifact| {
-                artifact
-                    .name
-                    .to_lowercase()
-                    .contains(&self.filter_input.to_lowercase())
-            })
-            .cloned()
-            .collect();
-
-        self.scroll_state.select(Some(0));
+        self.pane_mut().apply_filter();
         self.request_previewer();
         Ok(())
     }
@@ -227,58 +235,48 @@ impl App {
         self.request_previewer();
     }
 
-    /// Record cwd in navigation history (truncates any forward entries).
     pub fn record_history(&mut self) {
-        let cwd = self
-            .current_working_directory
-            .canonicalize()
-            .unwrap_or_else(|_| self.current_working_directory.clone());
-        if self.history.get(self.history_index) == Some(&cwd) {
-            return;
-        }
-        self.history.truncate(self.history_index + 1);
-        self.history.push(cwd);
-        self.history_index = self.history.len() - 1;
+        self.pane_mut().record_history();
     }
 
     pub fn history_back(&mut self) -> Result<()> {
-        if self.history_index == 0 {
+        let pane = self.pane_mut();
+        if pane.history_index == 0 {
             self.status_message = "History: at oldest".to_string();
             return Ok(());
         }
-        self.history_index -= 1;
-        self.current_working_directory = self.history[self.history_index].clone();
-        self.scroll_state.select(Some(0));
+        pane.history_index -= 1;
+        pane.current_working_directory = pane.history[pane.history_index].clone();
+        pane.scroll_state.select(Some(0));
         self.status_message = "History: back".to_string();
         self.async_reload()
     }
 
     pub fn history_forward(&mut self) -> Result<()> {
-        if self.history_index + 1 >= self.history.len() {
+        let pane = self.pane_mut();
+        if pane.history_index + 1 >= pane.history.len() {
             self.status_message = "History: at newest".to_string();
             return Ok(());
         }
-        self.history_index += 1;
-        self.current_working_directory = self.history[self.history_index].clone();
-        self.scroll_state.select(Some(0));
+        pane.history_index += 1;
+        pane.current_working_directory = pane.history[pane.history_index].clone();
+        pane.scroll_state.select(Some(0));
         self.status_message = "History: forward".to_string();
         self.async_reload()
     }
 
-    /// Jump to the user's home directory.
     pub fn jump_home(&mut self) -> Result<()> {
         let Some(home) = dirs::home_dir() else {
             self.status_message = "Home directory unavailable".to_string();
             return Ok(());
         };
-        self.current_working_directory = home.canonicalize().unwrap_or(home);
-        self.scroll_state.select(Some(0));
-        self.record_history();
+        let pane = self.pane_mut();
+        pane.current_working_directory = home.canonicalize().unwrap_or(home);
+        pane.scroll_state.select(Some(0));
+        pane.record_history();
         self.async_reload()
     }
 
-    /// Re-list the current directory after a change that invalidates cached
-    /// listings (e.g. toggling hidden files or changing the sort order).
     pub fn refresh(&mut self) -> Result<()> {
         self.cache.clear();
         self.async_reload()
@@ -305,54 +303,56 @@ impl App {
                 path,
                 error,
             } => {
-                if generation != self.generation {
+                let Some(index) = self
+                    .tabs
+                    .iter()
+                    .position(|pane| pane.generation == generation)
+                else {
                     return;
-                }
-                self.current_working_directory = path.clone();
-                self.entries_cache = artifacts.artifacts.clone();
-                self.listing_partial = artifacts.partial;
+                };
+                let pane = &mut self.tabs[index];
+                pane.current_working_directory = path.clone();
+                pane.entries_cache = artifacts.artifacts.clone();
+                pane.listing_partial = artifacts.partial;
                 self.cache.insert(path, artifacts.clone());
                 if let Some(message) = error {
                     self.status_message = format!("Error: {message}");
                 } else if artifacts.partial {
                     self.status_message = "Listing truncated at 50,000 entries".to_string();
                 }
-                self.handle_reload(artifacts).unwrap_or_default();
-                if self.config.settings.preview != Preview::Never {
+                pane.apply_listing(artifacts);
+                pane.refresh_git_marks();
+                if index == self.active_tab && self.config.settings.preview != Preview::Never {
                     self.request_previewer();
                 }
             }
             AsyncEvents::FolderPreviewDone {
                 generation,
                 previewer,
-            } => {
-                if generation != self.previewer_generation {
-                    return;
-                }
-                self.previewer = previewer;
             }
-            AsyncEvents::PreviewerDone {
+            | AsyncEvents::PreviewerDone {
                 generation,
                 previewer,
             } => {
-                if generation != self.previewer_generation {
-                    return;
+                if let Some(pane) = self
+                    .tabs
+                    .iter_mut()
+                    .find(|pane| pane.previewer_generation == generation)
+                {
+                    pane.previewer = previewer;
                 }
-                self.previewer = previewer;
             }
         }
     }
+
     pub fn is_file_artifact(&self) -> bool {
-        self.selected_artifact()
-            .is_some_and(|artifact| artifact.artifact_type == ArtifactType::File)
+        self.pane().is_file_artifact()
     }
 
     pub fn selected_artifact(&self) -> Option<&Artifact> {
-        let selection = self.scroll_state.selected()?;
-        self.entries_filtered.get(selection)
+        self.pane().selected_artifact()
     }
 
-    /// Seed the rename buffer with the selected entry's name and enter rename mode.
     pub fn begin_rename(&mut self) -> AppState {
         match self.selected_artifact() {
             Some(artifact) => {
@@ -363,13 +363,11 @@ impl App {
         }
     }
 
-    /// Clear the go-to buffer and enter path-jump mode.
     pub fn begin_goto(&mut self) -> AppState {
         self.goto_input.clear();
         AppState::GoTo
     }
 
-    /// Resolve `goto_input` (supports `~`) and jump if it is an existing directory.
     pub fn commit_goto(&mut self) -> Result<AppState> {
         let raw = self.goto_input.trim();
         if raw.is_empty() {
@@ -382,7 +380,7 @@ impl App {
         let candidate = if candidate.is_absolute() {
             candidate
         } else {
-            self.current_working_directory.join(candidate)
+            self.pane().current_working_directory.join(candidate)
         };
 
         let path = match candidate.canonicalize() {
@@ -398,21 +396,22 @@ impl App {
             return Ok(AppState::GoTo);
         }
 
-        self.current_working_directory = path;
+        let pane = self.pane_mut();
+        pane.current_working_directory = path;
+        pane.scroll_state.select(Some(0));
+        pane.record_history();
         self.goto_input.clear();
-        self.scroll_state.select(Some(0));
         self.status_message.clear();
-        self.record_history();
         self.async_reload()?;
         Ok(AppState::Active)
     }
 
-    /// Bookmark the current directory into slots 1–9 (persisted).
     pub fn bookmark_cwd(&mut self) {
         let path = self
+            .pane()
             .current_working_directory
             .canonicalize()
-            .unwrap_or_else(|_| self.current_working_directory.clone())
+            .unwrap_or_else(|_| self.pane().current_working_directory.clone())
             .display()
             .to_string();
 
@@ -436,7 +435,6 @@ impl App {
         self.status_message = format!("Bookmarked as {slot}");
     }
 
-    /// Jump to bookmark slot `1..=9` if present and still a directory.
     pub fn jump_to_bookmark(&mut self, slot: usize) -> Result<()> {
         if !(1..=9).contains(&slot) {
             return Ok(());
@@ -455,63 +453,108 @@ impl App {
             }
         };
 
-        self.current_working_directory = path;
-        self.scroll_state.select(Some(0));
+        let pane = self.pane_mut();
+        pane.current_working_directory = path;
+        pane.scroll_state.select(Some(0));
+        pane.record_history();
         self.status_message = format!("Jumped to bookmark {slot}");
-        self.record_history();
         self.async_reload()
     }
 
-    /// Enter confirm-delete when an entry is selected.
     pub fn begin_delete(&mut self) -> AppState {
-        match self.selected_artifact() {
-            Some(_) => AppState::Confirm,
-            None => AppState::Active,
+        if !self.pane().marked.is_empty() || self.selected_artifact().is_some() {
+            AppState::Confirm
+        } else {
+            AppState::Active
         }
     }
 
-    /// Delete the selected entry (trash or permanent) and refresh.
     pub fn commit_delete(&mut self) -> Result<()> {
-        let Some(artifact) = self.selected_artifact() else {
-            return Ok(());
-        };
-        let name = artifact.name.clone();
-        let path = artifact.path.clone();
-        let is_dir = artifact.artifact_type == ArtifactType::Directory;
         let use_trash = self.config.settings.enable_trash;
-
-        let result = if use_trash {
-            trash::delete(&path).map_err(|error| std::io::Error::other(error.to_string()))
-        } else if is_dir {
-            std::fs::remove_dir_all(&path)
-        } else {
-            std::fs::remove_file(&path)
+        let targets: Vec<(PathBuf, String, bool)> = {
+            let pane = self.pane();
+            if !pane.marked.is_empty() {
+                pane.marked
+                    .iter()
+                    .map(|path| {
+                        let name = path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| path.display().to_string());
+                        let is_dir = path.is_dir();
+                        (path.clone(), name, is_dir)
+                    })
+                    .collect()
+            } else if let Some(artifact) = pane.selected_artifact() {
+                vec![(
+                    artifact.path.clone(),
+                    artifact.name.clone(),
+                    artifact.artifact_type == ArtifactType::Directory,
+                )]
+            } else {
+                Vec::new()
+            }
         };
 
-        match result {
-            Ok(()) => {
-                self.status_message = if use_trash {
-                    format!("Moved {name} to trash")
-                } else {
-                    format!("Deleted {name}")
-                };
-            }
-            Err(error) => {
-                self.status_message = format!("Delete failed: {error}");
+        if targets.is_empty() {
+            return Ok(());
+        }
+
+        let mut ok = 0usize;
+        let mut fail = 0usize;
+        for (path, _name, is_dir) in &targets {
+            let result = if use_trash {
+                trash::delete(path).map_err(|error| std::io::Error::other(error.to_string()))
+            } else if *is_dir {
+                std::fs::remove_dir_all(path)
+            } else {
+                std::fs::remove_file(path)
+            };
+            match result {
+                Ok(()) => ok += 1,
+                Err(_) => fail += 1,
             }
         }
+
+        self.pane_mut().clear_marks();
+        self.status_message = if fail == 0 {
+            if use_trash {
+                format!("Moved {ok} item(s) to trash")
+            } else {
+                format!("Deleted {ok} item(s)")
+            }
+        } else {
+            format!("Deleted {ok}, failed {fail}")
+        };
         self.refresh()
     }
 
-    /// Copy the selected entry's absolute path to the system clipboard.
     pub fn copy_selected_path(&mut self) {
-        let Some(artifact) = self.selected_artifact() else {
+        let pane = self.pane();
+        let text = if !pane.marked.is_empty() {
+            let mut paths: Vec<_> = pane
+                .marked
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect();
+            paths.sort();
+            paths.join("\n")
+        } else if let Some(artifact) = pane.selected_artifact() {
+            artifact.path.display().to_string()
+        } else {
             self.status_message = "Copy failed: nothing selected".to_string();
             return;
         };
-        let path = artifact.path.display().to_string();
-        match arboard::Clipboard::new().and_then(|mut clipboard| clipboard.set_text(path.clone())) {
-            Ok(()) => self.status_message = format!("Copied {path}"),
+        let preview = text.lines().next().unwrap_or("").to_string();
+        match arboard::Clipboard::new().and_then(|mut clipboard| clipboard.set_text(text.clone())) {
+            Ok(()) => {
+                let count = text.lines().count();
+                self.status_message = if count > 1 {
+                    format!("Copied {count} paths")
+                } else {
+                    format!("Copied {preview}")
+                };
+            }
             Err(error) => self.status_message = format!("Copy failed: {error}"),
         }
     }
@@ -523,6 +566,7 @@ impl App {
         };
         let old_name = artifact.name.clone();
         let old_path = artifact.path.clone();
+        let cwd = self.pane().current_working_directory.clone();
 
         if new_name.is_empty() || new_name == old_name {
             return Ok(());
@@ -533,7 +577,7 @@ impl App {
             return Ok(());
         }
 
-        let new_path = self.current_working_directory.join(&new_name);
+        let new_path = cwd.join(&new_name);
         if new_path.exists() {
             self.status_message = format!("Rename failed: {new_name} already exists");
             return Ok(());
@@ -545,4 +589,263 @@ impl App {
         }
         self.refresh()
     }
+
+    pub fn toggle_mark(&mut self) {
+        self.pane_mut().toggle_mark_selected();
+        let count = self.pane().marked.len();
+        self.status_message = format!("Marked: {count}");
+    }
+
+    pub fn clear_marks(&mut self) {
+        self.pane_mut().clear_marks();
+        self.status_message = "Marks cleared".to_string();
+    }
+
+    pub fn new_tab(&mut self) -> Result<()> {
+        if self.tabs.len() >= MAX_TABS {
+            self.status_message = format!("Tab limit ({MAX_TABS}) reached");
+            return Ok(());
+        }
+        let path = self.pane().current_working_directory.clone();
+        let listing = self
+            .cache
+            .get(&path)
+            .cloned()
+            .unwrap_or_else(|| ArtifactListResult {
+                artifacts: self.pane().entries_cache.clone(),
+                partial: self.pane().listing_partial,
+            });
+        self.next_generation += 1;
+        let mut pane = BrowserPane::from_listing(path.clone(), listing, self.next_generation);
+        pane.refresh_git_marks();
+        self.tabs.push(pane);
+        self.active_tab = self.tabs.len() - 1;
+        self.status_message = format!("Tab {} / {}", self.active_tab + 1, self.tabs.len());
+        self.async_reload()
+    }
+
+    pub fn close_tab(&mut self) -> Result<()> {
+        if self.tabs.len() == 1 {
+            self.status_message = "Cannot close the last tab".to_string();
+            return Ok(());
+        }
+        let closed = self.active_tab;
+        self.tabs.remove(closed);
+        if let Some(split) = self.split_tab {
+            if split == closed {
+                self.split_tab = None;
+            } else if split > closed {
+                self.split_tab = Some(split - 1);
+            }
+        }
+        if self.active_tab >= self.tabs.len() {
+            self.active_tab = self.tabs.len() - 1;
+        }
+        // Split needs two distinct visible tabs; drop it if the peer now
+        // aliases the active tab or only one tab remains.
+        if self.tabs.len() < 2 || self.split_tab == Some(self.active_tab) {
+            self.split_tab = None;
+        }
+        self.status_message = format!("Tab {} / {}", self.active_tab + 1, self.tabs.len());
+        Ok(())
+    }
+
+    pub fn next_tab(&mut self) {
+        if self.tabs.len() < 2 {
+            return;
+        }
+        self.active_tab = (self.active_tab + 1) % self.tabs.len();
+        self.status_message = format!("Tab {} / {}", self.active_tab + 1, self.tabs.len());
+        self.request_previewer();
+    }
+
+    pub fn prev_tab(&mut self) {
+        if self.tabs.len() < 2 {
+            return;
+        }
+        self.active_tab = if self.active_tab == 0 {
+            self.tabs.len() - 1
+        } else {
+            self.active_tab - 1
+        };
+        self.status_message = format!("Tab {} / {}", self.active_tab + 1, self.tabs.len());
+        self.request_previewer();
+    }
+
+    /// Toggle dual-cwd split: shows the next tab (creating one if needed) beside the active tab.
+    pub fn toggle_split(&mut self) -> Result<()> {
+        if self.split_tab.is_some() {
+            self.split_tab = None;
+            self.status_message = "Split off".to_string();
+            return Ok(());
+        }
+        if self.tabs.len() < 2 {
+            self.new_tab()?;
+        }
+        let peer = (self.active_tab + 1) % self.tabs.len();
+        if peer == self.active_tab {
+            self.status_message = "Need a second tab to split".to_string();
+            return Ok(());
+        }
+        self.split_tab = Some(peer);
+        self.status_message = "Split on · Tab focuses panes".to_string();
+        Ok(())
+    }
+
+    /// When split, swap focus between the two visible tabs; otherwise cycle tabs.
+    pub fn focus_other_pane(&mut self) {
+        if let Some(peer) = self.split_tab {
+            let current = self.active_tab;
+            self.active_tab = peer;
+            self.split_tab = Some(current);
+            self.status_message = format!("Focus tab {}", self.active_tab + 1);
+            self.request_previewer();
+        } else {
+            self.next_tab();
+        }
+    }
+
+    /// Copy marked (or selected) entries into the other split pane's directory.
+    pub fn copy_to_other_pane(&mut self) -> Result<()> {
+        let Some(peer) = self.split_tab else {
+            self.status_message = "Split required for pane copy (\\)".to_string();
+            return Ok(());
+        };
+        let dest = self.tabs[peer].current_working_directory.clone();
+        let sources = self.collect_transfer_sources();
+        if sources.is_empty() {
+            self.status_message = "Nothing to copy".to_string();
+            return Ok(());
+        }
+        let mut ok = 0usize;
+        let mut skipped = 0usize;
+        let mut failed = 0usize;
+        for src in sources {
+            let name = src.file_name().unwrap_or_default();
+            let dest_path = dest.join(name);
+            if dest_path.exists() {
+                skipped += 1;
+                continue;
+            }
+            let result = if src.is_dir() {
+                copy_dir_all(&src, &dest_path)
+            } else {
+                std::fs::copy(&src, &dest_path).map(|_| ())
+            };
+            match result {
+                Ok(()) => ok += 1,
+                Err(_) => failed += 1,
+            }
+        }
+        self.status_message = transfer_status("Copied", ok, skipped, failed);
+        // Refresh peer listing
+        let saved = self.active_tab;
+        self.active_tab = peer;
+        self.refresh()?;
+        self.active_tab = saved;
+        Ok(())
+    }
+
+    /// Move marked (or selected) entries into the other split pane's directory.
+    pub fn move_to_other_pane(&mut self) -> Result<()> {
+        let Some(peer) = self.split_tab else {
+            self.status_message = "Split required for pane move (\\)".to_string();
+            return Ok(());
+        };
+        let dest = self.tabs[peer].current_working_directory.clone();
+        let sources = self.collect_transfer_sources();
+        if sources.is_empty() {
+            self.status_message = "Nothing to move".to_string();
+            return Ok(());
+        }
+        let mut ok = 0usize;
+        let mut skipped = 0usize;
+        let mut failed = 0usize;
+        for src in sources {
+            let name = src.file_name().unwrap_or_default();
+            let dest_path = dest.join(name);
+            if dest_path.exists() {
+                skipped += 1;
+                continue;
+            }
+            match move_path(&src, &dest_path) {
+                Ok(()) => ok += 1,
+                Err(_) => failed += 1,
+            }
+        }
+        self.pane_mut().clear_marks();
+        self.status_message = transfer_status("Moved", ok, skipped, failed);
+        self.refresh()?;
+        let saved = self.active_tab;
+        self.active_tab = peer;
+        self.refresh()?;
+        self.active_tab = saved;
+        Ok(())
+    }
+
+    fn collect_transfer_sources(&self) -> Vec<PathBuf> {
+        let pane = self.pane();
+        if !pane.marked.is_empty() {
+            pane.marked.iter().cloned().collect()
+        } else if let Some(artifact) = pane.selected_artifact() {
+            vec![artifact.path.clone()]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Queue the selected file for `$EDITOR`. The event loop performs the
+    /// actual launch because it owns the terminal (raw mode must be suspended
+    /// around a terminal editor).
+    pub fn open_in_editor(&mut self) {
+        let Some(artifact) = self.selected_artifact() else {
+            self.status_message = "Editor: nothing selected".to_string();
+            return;
+        };
+        if artifact.artifact_type != ArtifactType::File {
+            self.status_message = "Editor: select a file".to_string();
+            return;
+        }
+        self.pending_editor = Some(artifact.path.clone());
+    }
+}
+
+fn transfer_status(verb: &str, ok: usize, skipped: usize, failed: usize) -> String {
+    let mut message = format!("{verb} {ok} item(s) to other pane");
+    if skipped > 0 {
+        message.push_str(&format!(" · {skipped} skipped (exists)"));
+    }
+    if failed > 0 {
+        message.push_str(&format!(" · {failed} failed"));
+    }
+    message
+}
+
+/// Rename, falling back to copy + delete when crossing filesystems.
+fn move_path(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    if std::fs::rename(src, dst).is_ok() {
+        return Ok(());
+    }
+    if src.is_dir() {
+        copy_dir_all(src, dst)?;
+        std::fs::remove_dir_all(src)
+    } else {
+        std::fs::copy(src, dst)?;
+        std::fs::remove_file(src)
+    }
+}
+
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let to = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &to)?;
+        } else {
+            std::fs::copy(entry.path(), to)?;
+        }
+    }
+    Ok(())
 }

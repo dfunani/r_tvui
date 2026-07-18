@@ -99,7 +99,7 @@ main() {
     echo "  xattr -d com.apple.quarantine \"${BIN_DIR}/r_tvui\""
     echo ""
   fi
-  echo "Config: ~/.config/rtvui/config.toml"
+  echo "Config: ~/.r_tvui/.config.toml"
   echo "More options: docs/INSTALL.md"
 }
 

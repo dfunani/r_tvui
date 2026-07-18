@@ -4,8 +4,17 @@ resolver = "2"
 
 [package]
 name = "r_tvui"
-version = "0.2.0"
+version = "3.1.0"
 edition = "2024"
+description = "Keyboard-first TUI file explorer for the terminal"
+license = "MIT"
+repository = "https://github.com/dfunani/r_tvui"
+homepage = "https://github.com/dfunani/r_tvui"
+documentation = "https://github.com/dfunani/r_tvui#readme"
+readme = "README.md"
+keywords = ["tui", "file-manager", "ratatui", "cli", "explorer"]
+categories = ["command-line-utilities", "filesystem"]
+authors = ["Delali Funani"]
 
 [dependencies]
 ratatui = "0.30.0"

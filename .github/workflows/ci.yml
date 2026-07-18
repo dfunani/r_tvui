@@ -2,9 +2,9 @@ name: RTVUI-Deployment-Build
 
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "release/**"]
   pull_request:
-    branches: ["master"]
+    branches: ["master", "release/**"]
 
 jobs:
   check:

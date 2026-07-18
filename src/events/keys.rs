@@ -29,14 +29,13 @@ pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Resu
     match event_key.code {
         KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
         KeyCode::Char('/') => {
-            app.filter_input.clear();
+            app.filter_input_mut().clear();
             app.filter()?;
             Ok(AppState::Filter)
         }
         KeyCode::Char('g') => Ok(app.begin_goto()),
         KeyCode::Char('?') => Ok(AppState::Help),
         KeyCode::F(2) => Ok(app.begin_rename()),
-        // `d` is enter-dir on WASD; use `x` / Delete for destructive delete.
         KeyCode::Char('x') | KeyCode::Delete => Ok(app.begin_delete()),
         KeyCode::Char('y') => {
             app.copy_selected_path();
@@ -81,7 +80,7 @@ pub fn handle_key_events_rename_mode(app: &mut App, event_key: KeyEvent) -> Resu
 pub fn handle_key_events_filter_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
         KeyCode::Esc => {
-            app.filter_input.clear();
+            app.filter_input_mut().clear();
             app.filter()?;
             Ok(AppState::Active)
         }
@@ -91,7 +90,6 @@ pub fn handle_key_events_filter_mode(app: &mut App, event_key: KeyEvent) -> Resu
 
 pub fn handle_key_events_go_to_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        // Esc cancels; `q` is a literal path character (same contract as Filter).
         KeyCode::Esc => {
             app.goto_input.clear();
             Ok(AppState::Active)

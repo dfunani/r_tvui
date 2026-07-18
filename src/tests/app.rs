@@ -39,16 +39,16 @@ mod test_app {
     fn test_app_new() {
         let app = App::new(PathBuf::from("."), AppConfig::default()).unwrap();
         assert_eq!(
-            app.current_working_directory,
+            *app.current_working_directory(),
             PathBuf::from(".").canonicalize().unwrap()
         );
-        assert!(!app.artifacts.is_empty());
-        assert_eq!(app.scroll_state.selected(), Some(0));
+        assert!(!app.pane().artifacts.is_empty());
+        assert_eq!(app.scroll_state().selected(), Some(0));
         assert_eq!(app.status_message, "");
         assert_eq!(app.state, AppState::Active);
-        assert_eq!(app.filter_input, "");
-        assert_eq!(app.entries_cache, app.artifacts);
-        assert_eq!(app.entries_filtered, app.artifacts);
+        assert_eq!(app.filter_input(), "");
+        assert_eq!(app.entries_cache(), app.pane().artifacts);
+        assert_eq!(app.entries_filtered().to_vec(), app.pane().artifacts);
         assert_eq!(app.config, AppConfig::default());
     }
 
@@ -56,8 +56,8 @@ mod test_app {
     fn new_empty_directory_has_no_selection() {
         let dir = tempfile::tempdir().unwrap();
         let app = App::new(dir.path().to_path_buf(), AppConfig::default()).unwrap();
-        assert!(app.artifacts.is_empty());
-        assert_eq!(app.scroll_state.selected(), None);
+        assert!(app.pane().artifacts.is_empty());
+        assert_eq!(app.scroll_state().selected(), None);
     }
 
     // ---- options mapping ---------------------------------------------------
@@ -84,38 +84,38 @@ mod test_app {
     fn reload_lists_visible_files() {
         let (dir, mut app) = app_with_files(&[("test.txt", "test"), (".hidden.txt", "hidden")]);
         app.reload().unwrap();
-        assert_eq!(app.artifacts.len(), 1);
-        assert_eq!(app.artifacts[0].name, "test.txt");
+        assert_eq!(app.pane().artifacts.len(), 1);
+        assert_eq!(app.pane().artifacts[0].name, "test.txt");
         assert_eq!(
-            app.artifacts[0].path,
+            app.pane().artifacts[0].path,
             dir.path().join("test.txt").canonicalize().unwrap()
         );
-        assert_eq!(app.artifacts[0].artifact_type, ArtifactType::File);
-        assert_eq!(app.artifacts[0].size, 4);
+        assert_eq!(app.pane().artifacts[0].artifact_type, ArtifactType::File);
+        assert_eq!(app.pane().artifacts[0].size, 4);
     }
 
     #[test]
     fn reload_clamps_stale_selection() {
         let (dir, mut app) = app_with_files(&[("a.txt", "a"), ("b.txt", "b"), ("c.txt", "c")]);
         app.reload().unwrap();
-        app.scroll_state.select(Some(2));
+        app.scroll_state_mut().select(Some(2));
         // Remove two files so the directory shrinks to a single entry.
         fs::remove_file(dir.path().join("b.txt")).unwrap();
         fs::remove_file(dir.path().join("c.txt")).unwrap();
         app.reload().unwrap();
-        assert_eq!(app.artifacts.len(), 1);
-        assert_eq!(app.scroll_state.selected(), Some(0));
+        assert_eq!(app.pane().artifacts.len(), 1);
+        assert_eq!(app.scroll_state().selected(), Some(0));
     }
 
     #[test]
     fn reload_empty_directory_clears_selection() {
         let (dir, mut app) = app_with_files(&[("only.txt", "x")]);
         app.reload().unwrap();
-        assert_eq!(app.scroll_state.selected(), Some(0));
+        assert_eq!(app.scroll_state().selected(), Some(0));
         fs::remove_file(dir.path().join("only.txt")).unwrap();
         app.reload().unwrap();
-        assert!(app.artifacts.is_empty());
-        assert_eq!(app.scroll_state.selected(), None);
+        assert!(app.pane().artifacts.is_empty());
+        assert_eq!(app.scroll_state().selected(), None);
     }
 
     // ---- filtering ---------------------------------------------------------
@@ -124,38 +124,38 @@ mod test_app {
     fn filter_matches_substring() {
         let (_dir, mut app) = app_with_files(&[("alpha.txt", "a"), ("beta.rs", "b")]);
         app.reload().unwrap();
-        app.filter_input = "alpha".to_string();
+        *app.filter_input_mut() = "alpha".to_string();
         app.filter().unwrap();
-        assert_eq!(app.entries_filtered.len(), 1);
-        assert_eq!(app.entries_filtered[0].name, "alpha.txt");
+        assert_eq!(app.entries_filtered().len(), 1);
+        assert_eq!(app.entries_filtered()[0].name, "alpha.txt");
     }
 
     #[test]
     fn filter_is_case_insensitive() {
         let (_dir, mut app) = app_with_files(&[("README.md", "a")]);
         app.reload().unwrap();
-        app.filter_input = "readme".to_string();
+        *app.filter_input_mut() = "readme".to_string();
         app.filter().unwrap();
-        assert_eq!(app.entries_filtered.len(), 1);
+        assert_eq!(app.entries_filtered().len(), 1);
     }
 
     #[test]
     fn filter_empty_matches_everything() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a"), ("b.txt", "b")]);
         app.reload().unwrap();
-        app.filter_input = String::new();
+        *app.filter_input_mut() = String::new();
         app.filter().unwrap();
-        assert_eq!(app.entries_filtered.len(), app.artifacts.len());
+        assert_eq!(app.entries_filtered().len(), app.pane().artifacts.len());
     }
 
     #[test]
     fn filter_no_match_is_empty_and_resets_selection() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
         app.reload().unwrap();
-        app.filter_input = "zzz-nope".to_string();
+        *app.filter_input_mut() = "zzz-nope".to_string();
         app.filter().unwrap();
-        assert!(app.entries_filtered.is_empty());
-        assert_eq!(app.scroll_state.selected(), Some(0));
+        assert!(app.entries_filtered().is_empty());
+        assert_eq!(app.scroll_state().selected(), None);
     }
 
     // ---- selection helpers -------------------------------------------------
@@ -169,7 +169,7 @@ mod test_app {
             Some("file.txt".to_string())
         );
         assert!(app.is_file_artifact());
-        app.scroll_state.select(None);
+        app.scroll_state_mut().select(None);
         assert!(app.selected_artifact().is_none());
         assert!(!app.is_file_artifact());
     }
@@ -226,22 +226,22 @@ mod test_app {
             partial: false,
         };
         app.apply_async_event(AsyncEvents::BrowserDone {
-            generation: app.generation,
+            generation: app.pane().generation,
             artifacts: listing,
             path: target.clone(),
             error: None,
         });
-        assert_eq!(app.current_working_directory, target);
-        assert_eq!(app.artifacts.len(), 1);
-        assert_eq!(app.artifacts[0].name, "only.txt");
+        assert_eq!(*app.current_working_directory(), target);
+        assert_eq!(app.pane().artifacts.len(), 1);
+        assert_eq!(app.pane().artifacts[0].name, "only.txt");
         assert!(app.cache.contains_key(&target));
     }
 
     #[test]
     fn apply_browser_done_ignores_stale_generation() {
         let mut app = App::new(PathBuf::from("."), AppConfig::default()).unwrap();
-        let before = app.artifacts.clone();
-        let stale = app.generation + 99;
+        let before = app.pane().artifacts.clone();
+        let stale = app.pane().generation + 99;
         app.apply_async_event(AsyncEvents::BrowserDone {
             generation: stale,
             artifacts: ArtifactListResult {
@@ -251,7 +251,7 @@ mod test_app {
             path: PathBuf::from("/tmp/ghost"),
             error: None,
         });
-        assert_eq!(app.artifacts, before);
+        assert_eq!(app.pane().artifacts, before);
     }
 
     #[test]
@@ -262,20 +262,20 @@ mod test_app {
             body: "hello".to_string(),
         });
         app.apply_async_event(AsyncEvents::PreviewerDone {
-            generation: app.previewer_generation,
+            generation: app.pane().previewer_generation,
             previewer: preview,
         });
-        match &app.previewer {
+        match &app.previewer() {
             Previewer::Preview(p) => assert_eq!(p.body, "hello"),
             _ => panic!("expected preview to be applied"),
         }
 
         // A stale preview event is dropped.
         app.apply_async_event(AsyncEvents::PreviewerDone {
-            generation: app.previewer_generation + 50,
+            generation: app.pane().previewer_generation + 50,
             previewer: Previewer::Empty,
         });
-        assert!(matches!(app.previewer, Previewer::Preview(_)));
+        assert!(matches!(app.previewer(), Previewer::Preview(_)));
     }
 
     // ---- rename ------------------------------------------------------------
@@ -292,7 +292,7 @@ mod test_app {
     fn begin_rename_without_selection_stays_active() {
         let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
         app.reload().unwrap();
-        app.scroll_state.select(None);
+        app.scroll_state_mut().select(None);
         assert_eq!(app.begin_rename(), AppState::Active);
     }
 
@@ -309,7 +309,7 @@ mod test_app {
         let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
         app.reload().unwrap();
         assert_eq!(app.begin_delete(), AppState::Confirm);
-        app.scroll_state.select(None);
+        app.scroll_state_mut().select(None);
         assert_eq!(app.begin_delete(), AppState::Active);
     }
 
@@ -332,11 +332,11 @@ mod test_app {
         app.reload().unwrap();
         app.config.settings.enable_trash = false;
         let index = app
-            .entries_filtered
+            .entries_filtered()
             .iter()
             .position(|a| a.name == "subdir")
             .unwrap();
-        app.scroll_state.select(Some(index));
+        app.scroll_state_mut().select(Some(index));
         app.commit_delete().unwrap();
         assert!(!dir.path().join("subdir").exists());
         assert!(app.status_message.contains("Deleted"));
@@ -368,7 +368,7 @@ mod test_app {
     fn copy_selected_path_without_selection() {
         let (_dir, mut app) = app_with_files(&[("note.txt", "hi")]);
         app.reload().unwrap();
-        app.scroll_state.select(None);
+        app.scroll_state_mut().select(None);
         app.copy_selected_path();
         assert!(app.status_message.contains("nothing selected"));
     }
@@ -391,13 +391,13 @@ mod test_app {
             assert_eq!(app.config.cache.bookmarks.len(), 1);
             assert!(app.status_message.contains("Already bookmarked as 1"));
 
-            app.current_working_directory = second.path().to_path_buf();
+            *app.current_working_directory_mut() = second.path().to_path_buf();
             app.bookmark_cwd();
             assert_eq!(app.config.cache.bookmarks.len(), 2);
 
             app.jump_to_bookmark(1).unwrap();
             assert_eq!(
-                app.current_working_directory,
+                *app.current_working_directory(),
                 first.path().canonicalize().unwrap()
             );
             assert!(app.status_message.contains("Jumped to bookmark 1"));
@@ -424,15 +424,15 @@ mod test_app {
         let mut app = App::new(first_path.clone(), AppConfig::default()).unwrap();
         app.reload().unwrap();
 
-        app.current_working_directory = second_path.clone();
+        *app.current_working_directory_mut() = second_path.clone();
         app.record_history();
-        assert_eq!(app.history.len(), 2);
+        assert_eq!(app.pane().history.len(), 2);
 
         app.history_back().unwrap();
-        assert_eq!(app.current_working_directory, first_path);
+        assert_eq!(*app.current_working_directory(), first_path);
 
         app.history_forward().unwrap();
-        assert_eq!(app.current_working_directory, second_path);
+        assert_eq!(*app.current_working_directory(), second_path);
 
         app.history_forward().unwrap();
         assert!(app.status_message.contains("newest"));
@@ -450,7 +450,7 @@ mod test_app {
             app.cycle_preview();
             assert_eq!(app.config.settings.preview, Preview::Never);
             app.request_previewer();
-            assert!(matches!(app.previewer, Previewer::Empty));
+            assert!(matches!(app.previewer(), Previewer::Empty));
             app.cycle_preview();
             assert_eq!(app.config.settings.preview, Preview::OnMove);
         });
@@ -463,7 +463,10 @@ mod test_app {
         with_temp_home(|home| {
             let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
             app.jump_home().unwrap();
-            assert_eq!(app.current_working_directory, home.canonicalize().unwrap());
+            assert_eq!(
+                *app.current_working_directory(),
+                home.canonicalize().unwrap()
+            );
         });
     }
 
@@ -474,7 +477,7 @@ mod test_app {
         app.goto_input = target.path().display().to_string();
         assert_eq!(app.commit_goto().unwrap(), AppState::Active);
         assert_eq!(
-            app.current_working_directory,
+            *app.current_working_directory(),
             target.path().canonicalize().unwrap()
         );
         assert!(app.goto_input.is_empty());
@@ -518,11 +521,11 @@ mod test_app {
         app.reload().unwrap();
         // Select old.txt explicitly (entries are sorted: old.txt, taken.txt).
         let index = app
-            .entries_filtered
+            .entries_filtered()
             .iter()
             .position(|a| a.name == "old.txt")
             .unwrap();
-        app.scroll_state.select(Some(index));
+        app.scroll_state_mut().select(Some(index));
         app.rename_input = "taken.txt".to_string();
         app.commit_rename().unwrap();
         assert!(dir.path().join("old.txt").exists());
@@ -544,7 +547,7 @@ mod test_app {
         app.reload().unwrap();
         app.config.settings.preview = Preview::Never;
         app.request_previewer();
-        assert!(matches!(app.previewer, Previewer::Empty));
+        assert!(matches!(app.previewer(), Previewer::Empty));
     }
 
     #[test]
@@ -567,7 +570,7 @@ mod test_app {
     fn async_reload_uses_cache_when_present() {
         let (_dir, mut app) = app_with_files(&[("real.txt", "a")]);
         app.reload().unwrap();
-        let cwd = app.current_working_directory.clone();
+        let cwd = app.current_working_directory().clone();
         app.cache.insert(
             cwd,
             ArtifactListResult {
@@ -576,18 +579,18 @@ mod test_app {
             },
         );
         app.async_reload().unwrap();
-        assert_eq!(app.artifacts.len(), 1);
-        assert_eq!(app.artifacts[0].name, "cached.txt");
+        assert_eq!(app.pane().artifacts.len(), 1);
+        assert_eq!(app.pane().artifacts[0].name, "cached.txt");
     }
 
     #[test]
     fn reload_error_clears_state_and_reports() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
         app.reload().unwrap();
-        app.current_working_directory = PathBuf::from("/no/such/rtvui/dir");
+        *app.current_working_directory_mut() = PathBuf::from("/no/such/rtvui/dir");
         app.reload().unwrap();
-        assert!(app.artifacts.is_empty());
-        assert!(app.entries_filtered.is_empty());
+        assert!(app.pane().artifacts.is_empty());
+        assert!(app.entries_filtered().is_empty());
         assert!(app.status_message.starts_with("Error:"));
     }
 
@@ -607,18 +610,18 @@ mod test_app {
     fn apply_folder_preview_respects_generation() {
         let mut app = App::new(PathBuf::from("."), AppConfig::default()).unwrap();
         app.apply_async_event(AsyncEvents::FolderPreviewDone {
-            generation: app.previewer_generation,
+            generation: app.pane().previewer_generation,
             previewer: Previewer::Folder(FolderPreviewer {
                 title: "folder".to_string(),
                 artifacts: vec![artifact("inner.txt")],
             }),
         });
-        assert!(matches!(app.previewer, Previewer::Folder(_)));
+        assert!(matches!(app.previewer(), Previewer::Folder(_)));
 
         app.apply_async_event(AsyncEvents::FolderPreviewDone {
-            generation: app.previewer_generation + 25,
+            generation: app.pane().previewer_generation + 25,
             previewer: Previewer::Empty,
         });
-        assert!(matches!(app.previewer, Previewer::Folder(_)));
+        assert!(matches!(app.previewer(), Previewer::Folder(_)));
     }
 }

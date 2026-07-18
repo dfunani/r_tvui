@@ -67,7 +67,7 @@ mod test_ui {
     #[test]
     fn renders_folder_preview() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
-        app.previewer = Previewer::Folder(FolderPreviewer {
+        app.pane_mut().previewer = Previewer::Folder(FolderPreviewer {
             title: "child-folder".to_string(),
             artifacts: vec![Artifact {
                 name: "inner.txt".to_string(),
@@ -86,7 +86,7 @@ mod test_ui {
     #[test]
     fn renders_text_preview() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
-        app.previewer = Previewer::Preview(PreviewPreviewer {
+        app.pane_mut().previewer = Previewer::Preview(PreviewPreviewer {
             title: "readme".to_string(),
             body: "preview-body-content".to_string(),
         });
@@ -130,7 +130,7 @@ mod test_ui {
         let text = draw(&mut app);
         assert!(text.contains("Help"));
         assert!(text.contains("Navigation"));
-        assert!(text.contains("Options"));
+        assert!(text.contains("Tabs"));
     }
 
     #[test]

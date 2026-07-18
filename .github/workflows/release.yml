@@ -37,7 +37,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - run: make release TARGET=${{ matrix.target }}
+      # Direct cargo (not make) so Windows runners don't need GNU make.
+      - run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package (Unix)
         if: matrix.archive == 'tar.gz'

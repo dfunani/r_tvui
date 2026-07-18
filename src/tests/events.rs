@@ -40,25 +40,25 @@ mod test_events {
     #[test]
     fn scroll_down_advances_and_clamps() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a"), ("b.txt", "b"), ("c.txt", "c")]);
-        assert_eq!(app.scroll_state.selected(), Some(0));
+        assert_eq!(app.scroll_state().selected(), Some(0));
         handle_key_events_normal_mode(&mut app, ch('s')).unwrap();
-        assert_eq!(app.scroll_state.selected(), Some(1));
+        assert_eq!(app.scroll_state().selected(), Some(1));
         handle_key_events_normal_mode(&mut app, ch('s')).unwrap();
-        assert_eq!(app.scroll_state.selected(), Some(2));
+        assert_eq!(app.scroll_state().selected(), Some(2));
         // already at the bottom -> stays
         handle_key_events_normal_mode(&mut app, ch('s')).unwrap();
-        assert_eq!(app.scroll_state.selected(), Some(2));
+        assert_eq!(app.scroll_state().selected(), Some(2));
     }
 
     #[test]
     fn scroll_up_retreats_and_clamps() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a"), ("b.txt", "b")]);
-        app.scroll_state.select(Some(1));
+        app.scroll_state_mut().select(Some(1));
         handle_key_events_normal_mode(&mut app, ch('w')).unwrap();
-        assert_eq!(app.scroll_state.selected(), Some(0));
+        assert_eq!(app.scroll_state().selected(), Some(0));
         // already at the top -> stays
         handle_key_events_normal_mode(&mut app, ch('w')).unwrap();
-        assert_eq!(app.scroll_state.selected(), Some(0));
+        assert_eq!(app.scroll_state().selected(), Some(0));
     }
 
     // ---- directory navigation ---------------------------------------------
@@ -76,23 +76,23 @@ mod test_events {
     fn d_enters_directory_and_a_leaves_it() {
         let (_dir, mut app) = app_with_subdir();
         handle_key_events_normal_mode(&mut app, ch('d')).unwrap();
-        assert!(app.current_working_directory.ends_with("sub"));
+        assert!(app.current_working_directory().ends_with("sub"));
         handle_key_events_normal_mode(&mut app, ch('a')).unwrap();
-        assert!(!app.current_working_directory.ends_with("sub"));
+        assert!(!app.current_working_directory().ends_with("sub"));
     }
 
     #[test]
     fn enter_on_directory_navigates_in() {
         let (_dir, mut app) = app_with_subdir();
         handle_key_events_normal_mode(&mut app, code(KeyCode::Enter)).unwrap();
-        assert!(app.current_working_directory.ends_with("sub"));
+        assert!(app.current_working_directory().ends_with("sub"));
     }
 
     #[test]
     fn home_key_walks_toward_root() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
         handle_key_events_normal_mode(&mut app, ch('h')).unwrap();
-        assert!(app.current_working_directory.components().count() <= 1);
+        assert!(app.current_working_directory().components().count() <= 1);
     }
 
     #[test]
@@ -100,7 +100,10 @@ mod test_events {
         with_temp_home(|home| {
             let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
             handle_key_events_normal_mode(&mut app, ch('G')).unwrap();
-            assert_eq!(app.current_working_directory, home.canonicalize().unwrap());
+            assert_eq!(
+                *app.current_working_directory(),
+                home.canonicalize().unwrap()
+            );
         });
     }
 
@@ -112,14 +115,14 @@ mod test_events {
         let second_path = second.path().canonicalize().unwrap();
         let mut app = App::new(first_path.clone(), AppConfig::default()).unwrap();
         app.reload().unwrap();
-        app.current_working_directory = second_path.clone();
+        *app.current_working_directory_mut() = second_path.clone();
         app.record_history();
 
         handle_key_events_normal_mode(&mut app, ch('u')).unwrap();
-        assert_eq!(app.current_working_directory, first_path);
+        assert_eq!(*app.current_working_directory(), first_path);
 
         handle_key_events_normal_mode(&mut app, ch('i')).unwrap();
-        assert_eq!(app.current_working_directory, second_path);
+        assert_eq!(*app.current_working_directory(), second_path);
     }
 
     // ---- normal-mode transitions ------------------------------------------
@@ -174,21 +177,21 @@ mod test_events {
                 AppState::Filter
             );
         }
-        assert_eq!(app.filter_input, "alp");
-        assert_eq!(app.entries_filtered.len(), 1);
-        assert_eq!(app.entries_filtered[0].name, "alpha.txt");
+        assert_eq!(app.filter_input(), "alp");
+        assert_eq!(app.entries_filtered().len(), 1);
+        assert_eq!(app.entries_filtered()[0].name, "alpha.txt");
 
         handle_key_events_filter_mode(&mut app, code(KeyCode::Backspace)).unwrap();
-        assert_eq!(app.filter_input, "al");
+        assert_eq!(app.filter_input(), "al");
 
         // 'q' is a literal character in filter mode, not quit.
         handle_key_events_filter_mode(&mut app, ch('q')).unwrap();
-        assert_eq!(app.filter_input, "alq");
+        assert_eq!(app.filter_input(), "alq");
 
         let state = handle_key_events_filter_mode(&mut app, code(KeyCode::Esc)).unwrap();
         assert_eq!(state, AppState::Active);
-        assert_eq!(app.filter_input, "");
-        assert_eq!(app.entries_filtered.len(), app.artifacts.len());
+        assert_eq!(app.filter_input(), "");
+        assert_eq!(app.entries_filtered().len(), app.pane().artifacts.len());
     }
 
     // ---- rename input mode -------------------------------------------------
@@ -345,7 +348,7 @@ mod test_events {
             AppState::Active
         );
         assert_eq!(
-            app.current_working_directory,
+            *app.current_working_directory(),
             target.path().canonicalize().unwrap()
         );
 
@@ -375,11 +378,11 @@ mod test_events {
         app.config.settings.enable_trash = false;
 
         let index = app
-            .entries_filtered
+            .entries_filtered()
             .iter()
             .position(|a| a.name == "doomed.txt")
             .unwrap();
-        app.scroll_state.select(Some(index));
+        app.scroll_state_mut().select(Some(index));
 
         assert_eq!(
             handle_key_events_normal_mode(&mut app, ch('x')).unwrap(),
@@ -432,7 +435,7 @@ mod test_events {
             );
             assert_eq!(app.config.cache.bookmarks.len(), 1);
 
-            app.current_working_directory = second.path().to_path_buf();
+            *app.current_working_directory_mut() = second.path().to_path_buf();
             handle_key_events_normal_mode(&mut app, ch('b')).unwrap();
 
             assert_eq!(
@@ -440,7 +443,7 @@ mod test_events {
                 AppState::Active
             );
             assert_eq!(
-                app.current_working_directory,
+                *app.current_working_directory(),
                 first.path().canonicalize().unwrap()
             );
         });
@@ -477,10 +480,10 @@ mod test_events {
     #[test]
     fn enter_mode_is_noop_without_a_valid_selection() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
-        app.scroll_state.select(None);
+        app.scroll_state_mut().select(None);
         handle_key_event_enter_mode(&mut app).unwrap();
 
-        app.scroll_state.select(Some(99));
+        app.scroll_state_mut().select(Some(99));
         handle_key_event_enter_mode(&mut app).unwrap();
     }
 
@@ -511,7 +514,7 @@ mod test_events {
     #[test]
     fn scroll_and_navigate_are_safe_without_selection() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
-        app.scroll_state.select(None);
+        app.scroll_state_mut().select(None);
         handle_key_events_normal_mode(&mut app, ch('w')).unwrap();
         handle_key_events_normal_mode(&mut app, ch('s')).unwrap();
         handle_key_events_normal_mode(&mut app, ch('d')).unwrap();
@@ -520,13 +523,114 @@ mod test_events {
     #[test]
     fn forward_on_file_or_out_of_range_is_noop() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
-        let cwd = app.current_working_directory.clone();
+        let cwd = app.current_working_directory().clone();
         // a.txt is a file, so scroll_forward takes the non-directory path.
         handle_key_events_normal_mode(&mut app, ch('d')).unwrap();
-        assert_eq!(app.current_working_directory, cwd);
+        assert_eq!(*app.current_working_directory(), cwd);
         // Out-of-range selection: scroll_forward finds no artifact.
-        app.scroll_state.select(Some(99));
+        app.scroll_state_mut().select(Some(99));
         handle_key_events_normal_mode(&mut app, ch('d')).unwrap();
-        assert_eq!(app.current_working_directory, cwd);
+        assert_eq!(*app.current_working_directory(), cwd);
+    }
+
+    #[test]
+    fn vim_jk_move_selection() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a"), ("b.txt", "b"), ("c.txt", "c")]);
+        app.reload().unwrap();
+        assert_eq!(app.scroll_state().selected(), Some(0));
+        handle_key_events_normal_mode(&mut app, ch('j')).unwrap();
+        assert_eq!(app.scroll_state().selected(), Some(1));
+        handle_key_events_normal_mode(&mut app, ch('k')).unwrap();
+        assert_eq!(app.scroll_state().selected(), Some(0));
+    }
+
+    #[test]
+    fn space_toggles_mark_and_u_clears() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.reload().unwrap();
+        handle_key_events_normal_mode(&mut app, code(KeyCode::Char(' '))).unwrap();
+        assert_eq!(app.pane().marked.len(), 1);
+        handle_key_events_normal_mode(&mut app, ch('U')).unwrap();
+        assert!(app.pane().marked.is_empty());
+    }
+
+    #[test]
+    fn new_tab_and_close_tab() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        assert_eq!(app.tabs.len(), 1);
+        handle_key_events_normal_mode(&mut app, ch('N')).unwrap();
+        assert_eq!(app.tabs.len(), 2);
+        handle_key_events_normal_mode(&mut app, ch('W')).unwrap();
+        assert_eq!(app.tabs.len(), 1);
+    }
+
+    #[test]
+    fn split_toggle_creates_peer_tab() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        handle_key_events_normal_mode(&mut app, ch('\\')).unwrap();
+        assert!(app.split_tab.is_some());
+        assert!(app.tabs.len() >= 2);
+        handle_key_events_normal_mode(&mut app, ch('\\')).unwrap();
+        assert!(app.split_tab.is_none());
+    }
+
+    #[test]
+    fn tab_generations_are_globally_unique() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        handle_key_events_normal_mode(&mut app, ch('N')).unwrap();
+        handle_key_events_normal_mode(&mut app, ch('N')).unwrap();
+        assert_eq!(app.tabs.len(), 3);
+
+        // Reload every tab; no two panes may share a listing generation, so
+        // async results can never route to the wrong tab.
+        for index in 0..app.tabs.len() {
+            app.active_tab = index;
+            app.async_reload().unwrap();
+        }
+        let mut generations: Vec<u64> = app.tabs.iter().map(|pane| pane.generation).collect();
+        generations.sort_unstable();
+        generations.dedup();
+        assert_eq!(generations.len(), app.tabs.len());
+    }
+
+    #[test]
+    fn closing_tab_clears_split_when_one_tab_remains() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        handle_key_events_normal_mode(&mut app, ch('\\')).unwrap();
+        assert!(app.split_tab.is_some());
+        handle_key_events_normal_mode(&mut app, ch('W')).unwrap();
+        assert_eq!(app.tabs.len(), 1);
+        assert!(app.split_tab.is_none());
+    }
+
+    #[test]
+    fn editor_key_queues_pending_editor_for_files() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.reload().unwrap();
+        assert!(app.pending_editor.is_none());
+        handle_key_events_normal_mode(&mut app, ch('e')).unwrap();
+        assert!(app.pending_editor.is_some());
+    }
+
+    #[test]
+    fn pane_copy_skips_existing_destination() {
+        let src_dir = tempfile::tempdir().unwrap();
+        std::fs::write(src_dir.path().join("dup.txt"), "source").unwrap();
+        let dest_dir = tempfile::tempdir().unwrap();
+        std::fs::write(dest_dir.path().join("dup.txt"), "already-here").unwrap();
+
+        let mut app = App::new(src_dir.path().to_path_buf(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+        app.new_tab().unwrap();
+        // Point the new tab (peer) at the destination, then focus the source
+        // tab with the peer as the split partner.
+        *app.current_working_directory_mut() = dest_dir.path().to_path_buf();
+        app.active_tab = 0;
+        app.split_tab = Some(1);
+        app.copy_to_other_pane().unwrap();
+
+        assert!(app.status_message.contains("skipped"));
+        let contents = std::fs::read_to_string(dest_dir.path().join("dup.txt")).unwrap();
+        assert_eq!(contents, "already-here");
     }
 }
