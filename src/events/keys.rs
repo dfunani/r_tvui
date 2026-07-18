@@ -33,9 +33,40 @@ pub fn handle_key_events_normal_mode(app: &mut App, event_key: KeyEvent) -> Resu
             app.filter()?;
             Ok(AppState::Filter)
         }
-        KeyCode::Char('g') => Ok(AppState::GoTo),
+        KeyCode::Char('g') => Ok(app.begin_goto()),
         KeyCode::Char('?') => Ok(AppState::Help),
         KeyCode::F(2) => Ok(app.begin_rename()),
+        // `d` is enter-dir on WASD; use `x` / Delete for destructive delete.
+        KeyCode::Char('x') | KeyCode::Delete => Ok(app.begin_delete()),
+        KeyCode::Char('y') => {
+            app.copy_selected_path();
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('b') => {
+            app.bookmark_cwd();
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('u') => {
+            app.history_back()?;
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('i') => {
+            app.history_forward()?;
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('P') => {
+            app.cycle_preview();
+            Ok(AppState::Active)
+        }
+        KeyCode::Char('G') => {
+            app.jump_home()?;
+            Ok(AppState::Active)
+        }
+        KeyCode::Char(digit) if digit.is_ascii_digit() && digit != '0' => {
+            let slot = digit.to_digit(10).unwrap() as usize;
+            app.jump_to_bookmark(slot)?;
+            Ok(AppState::Active)
+        }
         _ => handle_key_event_normal_mode(app, event_key),
     }
 }
@@ -60,21 +91,25 @@ pub fn handle_key_events_filter_mode(app: &mut App, event_key: KeyEvent) -> Resu
 
 pub fn handle_key_events_go_to_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
+        // Esc cancels; `q` is a literal path character (same contract as Filter).
+        KeyCode::Esc => {
+            app.goto_input.clear();
+            Ok(AppState::Active)
+        }
         _ => handle_key_event_go_to_mode(app, event_key),
     }
 }
 
 pub fn handle_key_events_confirm_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
+        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('n') => Ok(AppState::Active),
         _ => handle_key_event_confirm_mode(app, event_key),
     }
 }
 
 pub fn handle_key_events_help_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Quit),
+        KeyCode::Esc | KeyCode::Char('q') => Ok(AppState::Active),
         _ => handle_key_event_help_mode(app, event_key),
     }
 }

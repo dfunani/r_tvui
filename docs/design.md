@@ -1,11 +1,11 @@
 # R-TVUI — Design & implementation
 
-**Version:** 2.0.0 (shipping)  
-**Status:** Living document — describes what ships today and what is planned next.
+**Version:** 0.2.0 (`Cargo.toml`)  
+**Status:** Living document — describes what ships on **master today** and what is planned. For gap audit history, see **[review.md](./review.md)**.
 
-This document consolidates the former design spec, implementation plan, implementation blueprint, architecture review, install notes, and distribution guide into a single reference for **how R-TVUI is designed and how it is built through phases**.
+This document consolidates the former design spec, implementation plan, install notes, and distribution guide into a single reference for **how R-TVUI is designed and how it is built through phases**.
 
-For a hands-on rebuild from scratch, see **[tutorial.md](./tutorial.md)**.
+For a hands-on rebuild from scratch, see **[tutorial.md](./tutorial.md)**. Tutorial phases describe the *target* curriculum and may still mention crates/paths that were folded or renamed on master.
 
 ---
 
@@ -34,67 +34,69 @@ For a hands-on rebuild from scratch, see **[tutorial.md](./tutorial.md)**.
 
 ## 1. Problem & goals
 
-Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc scripts. **R-TVUI** is a dedicated **TUI file explorer** in Rust that reduces friction: browse with keyboard, preview before open, filter and sort, bookmarks, trash delete, and open files with the system default app — without leaving the shell.
+Power users live in the terminal but often fall back to `ls`, `cd`, and ad-hoc scripts. **R-TVUI** is a dedicated **TUI file explorer** in Rust that reduces friction: browse with keyboard, preview before open, filter and sort, and open files with the system default app — without leaving the shell.
 
 **North star:** Responsiveness (non-blocking I/O, predictable ops) with a **small, shippable core**.
+
+**Today on master:** async browse + filter + rename + delete (confirm + trash) + copy path + bookmarks + history + go-to + help + themes/sort/hidden/preview cycle. Design M3+ (dual pane, images, plugins) remains planned.
 
 ---
 
 ## 2. Product principles
 
 1. **Never block the UI thread** — directory listing, side-pane reads, and file open run off the main loop (async Tokio + background threads).
-2. **Keyboard-first** — every action has a default binding; config persists theme, sort, trash, bookmarks.
-3. **Predictable file operations** — confirm destructive actions; optional trash via the `trash` crate.
-4. **Terminal realism** — true-color themes; degrade gracefully on limited terminals (`mono` theme).
-5. **Single binary** — workspace crates `core` and `filesystem` only; no dynamic plugins in v2.
+2. **Keyboard-first** — every shipping action has a default binding; config persists theme, sort, preview, hidden, and (schema-ready) trash/bookmarks.
+3. **Predictable file operations** — confirm destructive actions; optional trash via the `trash` crate when `enable_trash` is set.
+4. **Terminal realism** — true-color themes; degrade gracefully on limited terminals (`Mono` theme).
+5. **Single binary** — workspace members: binary `r_tvui` + `crates/core` only (filesystem listing lives in `core`; no dynamic plugins).
 
 ---
 
 ## 3. Personas
 
-| Persona | Needs | v2 support |
-|--------|--------|------------|
-| **Dev on large repos** | Fast navigation, filter, sort, path copy | Yes — async listing, 50k cap, cache |
-| **Ops / SRE** | Clear errors, trash, open with system app | Yes — partial listing flag, `xdg-open` / `open` |
-| **Minimalist** | Works out of the box, saved config | Yes — defaults + `~/.config/rtvui/config.toml` |
+| Persona | Needs | Support on master |
+|--------|--------|-------------------|
+| **Dev on large repos** | Fast navigation, filter, sort, path copy | **Yes** — async listing, 50k cap, cache, filter/sort, `y` copy path |
+| **Ops / SRE** | Clear errors, trash, open with system app | **Partial** — open + trash/delete ship; listing errors often silent |
+| **Minimalist** | Works out of the box, saved config | **Yes** — defaults + `~/.r_tvui/.config.toml` |
 
 ---
 
 ## 4. Phased delivery
 
-The project was planned in milestones **M0–M4**. The shipping app implements **M0 + most M1/M2 UX** in a **simpler crate layout** than the original multi-crate blueprint.
+Milestones **M0–M4** below are the **product roadmap**. (Separate IDs in [review.md](./review.md) track implementation gaps.)
 
-| Phase | Scope | Exit criteria | Status (v2.0.0) |
-|-------|--------|---------------|-----------------|
-| **M0 — Spike** | TUI frame, list one directory, j/k/h/l/q | Opens, lists cwd, quits cleanly | Done |
-| **M1 — MVP browser** | Navigate, filter, sort, text preview, config, themes | Daily-usable local browser | Done (no multi-tab) |
-| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | Done |
-| **M2.5 — Async v2** | Async listing, directory cache, generation guards, background open | Large dirs stay responsive | Done |
-| **M3 — Power** | Split dual-cwd, image preview, git column, external tools | Power-user parity | Planned |
-| **M4 — Plugins** | Previewer/spotter API, third-party extensions | Extensibility | Planned |
+| Phase | Scope | Exit criteria | Status (master / 0.1.0) |
+|-------|--------|---------------|-------------------------|
+| **M0 — Spike** | TUI frame, list one directory, quit | Opens, lists cwd, quits cleanly | **Done** (WASD nav, not vim `j`/`k`) |
+| **M1 — MVP browser** | Navigate, filter, sort, text preview, config, themes | Daily-usable local browser | **Done** (no multi-tab; WASD nav) |
+| **M2 — File ops** | Delete (trash), rename, clipboard path, bookmarks, history | Destructive ops with confirm | **Done** |
+| **M2.5 — Async** | Async listing, directory cache, generation guards, background open | Large dirs stay responsive | **Done** |
+| **M3 — Power** | Split dual-cwd, image preview, git column, external tools | Power-user parity | **Planned** |
+| **M4 — Plugins** | Previewer/spotter API, third-party extensions | Extensibility | **Planned** |
 
 ### 4.1 Original vs actual structure
 
-Early planning proposed many crates (`r-tvui_app`, `r-tvui_fs`, `r-tvui_preview`, …). The shipped design uses:
+Early planning proposed many crates (`r-tvui_app`, `r-tvui_fs`, `r-tvui_preview`, …) and a separate `crates/filesystem`. **Master uses:**
 
-- **Binary crate** `r_tvui` — `src/` with `models`, `events`, `ui`, `utils`
-- **`crates/core`** — paths, formatters, ID newtypes reserved for later
-- **`crates/filesystem`** — sync + async directory listing, sort, cache, 50k entry cap
-
-This keeps compile times and mental overhead low while preserving clear boundaries.
+- **Binary crate** `r_tvui` — `src/` with `models`, `events`, `ui`, `config`, `os`, `cli`
+- **`crates/core`** — artifacts, sync/async listing, sort, 50k cap, errors
 
 ### 4.2 Features (phased)
 
-| Feature | Target phase | v2.0.0 |
+| Feature | Target phase | Master |
 |---------|--------------|--------|
-| Single-pane browser + status line | M0 | Yes |
-| Multi-tab | M1 | No |
-| Async listing + text preview | M1 / v2 | Yes |
-| Visual selection + bulk copy/move | M2 | No |
-| Image preview (terminal-dependent) | M3 | No |
-| Split panes (dual cwd) | M3 | No (side pane is preview/folder, not second cwd) |
-| Plugin API | M4 | No |
-| Remote VFS (SSH/SFTP) | Later | No |
+| Single-pane browser + status line | M0 | **Yes** |
+| Multi-tab | M1 | **No** |
+| Async listing + text preview | M1 / M2.5 | **Yes** |
+| Filter / sort / themes / rename | M1–M2 | **Yes** |
+| Delete / trash / clipboard / bookmarks / history | M2 | **Yes** |
+| GoTo path / Help overlay | M1 | **Yes** |
+| Visual selection + bulk copy/move | M2+ | **No** |
+| Image preview (terminal-dependent) | M3 | **No** |
+| Split panes (dual cwd) | M3 | **No** (side pane is preview/folder, not second cwd) |
+| Plugin API | M4 | **No** |
+| Remote VFS (SSH/SFTP) | Later | **No** |
 
 ---
 
@@ -103,13 +105,12 @@ This keeps compile times and mental overhead low while preserving clear boundari
 ```text
 Terminal (stdin/stdout)
     ↔ ratatui 0.30 + crossterm (via ratatui::run)
-    ↔ App state (models/app.rs — cwd, selection, modes, side pane)
+    ↔ App state (models/app.rs — cwd, selection, modes, previewer)
     ↔ Event loop (events/app.rs — poll + key dispatch)
-    ↔ ListingService (utils/listing.rs — Tokio runtime, mpsc events)
-    ↔ DirectoriesCache (crates/filesystem — TTL + LRU)
-    ↔ list_directories_async (crates/filesystem)
-    ↔ Config (utils/config.rs — TOML)
-    ↔ Opener (utils/opener.rs — background system open)
+    ↔ AsyncEventClient (models/client.rs — Tokio runtime, mpsc events)
+    ↔ list_artifact_entries[_async] (crates/core)
+    ↔ Config (config/* — TOML at ~/.r_tvui/.config.toml)
+    ↔ Opener (os/mod.rs — background system open)
 ```
 
 ### 5.1 Module map
@@ -117,28 +118,26 @@ Terminal (stdin/stdout)
 ```text
 src/
   main.rs              CLI (clap), panic hook, ratatui::run
-  lib.rs               modules + install_panic_hook
+  lib.rs               modules + test wiring
   models/
-    app.rs             App, SidePane, ListingService hooks
-    mode.rs            AppMode (Normal, Filter, GoToPath, ConfirmDelete, …)
+    app.rs             App, AppState, filter/rename/theme/sort/cache
+    client.rs          AsyncEventClient (Tokio + mpsc)
+    previewer.rs       Text / folder preview types
   events/
-    app.rs             Main loop: poll keys, drain listing events, draw
-    keys.rs            Key → action dispatch
+    app.rs             Main loop: poll keys, drain async events, draw
+    keys.rs            Outer mode dispatch (Esc cancel contract)
+    key.rs             Per-mode key handlers
+    utils.rs           Scroll / enter / home helpers
   ui/
-    render.rs          Layout: file list + side pane + status
-    app.rs             Widget helpers
-  utils/
-    listing.rs         Tokio runtime, cache, ListingEvent channel
-    navigation.rs      refresh cwd, generation tokens (stale discard)
-    browser.rs         Side-pane folder/preview requests
-    previewer.rs       Text preview for files
-    opener.rs          open_in_background (macOS/Linux/Windows)
-    config.rs          Load/save ~/.config/rtvui/config.toml
-    ops.rs             delete, rename
-    filter.rs, history.rs, clipboard.rs, startup.rs, …
+    renders.rs         Layout: file list + side pane + status
+    layout.rs, views.rs, utils.rs
+  config/
+    app.rs             AppConfig, themes, sort, preview, settings
+    utils.rs           Load/save ~/.r_tvui/.config.toml
+  os/mod.rs            open_file (macOS/Linux/Windows)
+  cli/                 Clap model + start-path + panic restore hook
 crates/
-  core/                File, AbsolutePath, formatters, ids (reserved)
-  filesystem/          list_directories, cache, sort, errors
+  core/                Artifact listing, sort, formatters, errors
 ```
 
 ### 5.2 Layer responsibilities
@@ -146,10 +145,10 @@ crates/
 | Layer | Owns | Must not |
 |-------|------|----------|
 | `main` / `events` | argv, terminal lifecycle, poll interval | Business rules for paths |
-| `models` | App state, modes, side pane enum | Direct filesystem I/O |
+| `models` | App state, modes, previewer, async client | Keymap tables |
 | `ui` | ratatui layout from App snapshot | Blocking I/O |
-| `utils/listing` | Spawn async reads, cache access | Keymap logic |
-| `filesystem` | Directory reads, sort, cap, cache | UI or keybindings |
+| `models/client` | Spawn async reads | Keymap logic |
+| `crates/core` | Directory reads, sort, cap | UI or keybindings |
 
 ---
 
@@ -157,36 +156,36 @@ crates/
 
 ### 6.1 Main loop
 
-1. `App::new(optional path)` loads config, resolves start path, requests initial browser listing.
-2. `App::run(terminal)` loops:
-   - Drain `ListingEvent`s from `ListingService` (browser list, side folder, side preview).
-   - Apply results only if `generation` matches `browser_listing_gen` / `side_pane_gen`.
-   - Poll keyboard (~16 ms); dispatch keys → navigation, filter, ops, etc.
-   - `terminal.draw` → `ui::render`.
+1. `App::new(optional path)` loads config, resolves start path, requests initial listing.
+2. Loop (`events/app.rs`):
+   - Drain `AsyncEvents` from `AsyncEventClient` (browser list, folder preview, text preview).
+   - Apply results only if `generation` matches.
+   - Poll keyboard; `dispatch_key` → navigation, filter, ops, etc.
+   - Draw via `ui::renders`.
 
 ### 6.2 Async listing
 
-- **`ListingService`** holds a dedicated **Tokio runtime** and an **`mpsc`** channel for completion events.
-- **`list_directories_async`** runs on the runtime; results are wrapped in **`Arc<DirectoryListResult>`** and stored in **`DirectoriesCache`** (shared mutex).
-- **Browser** and **side pane** share the cache — revisiting a recently listed folder avoids redundant disk reads.
+- **`AsyncEventClient`** holds a dedicated **Tokio runtime** and an **`mpsc`** channel for completion events.
+- Listing runs on the runtime; results may be stored in an in-app **per-path cache** (cleared on refresh/sort/hidden).
+- **Browser** and **side pane** both request listings through the client.
 
 ### 6.3 Stale-result guard
 
-Fast navigation increments **generation counters** before each request. Late completions are **discarded** if their generation no longer matches. This avoids showing the wrong directory after rapid `j`/`k` or `h`/`l`.
+Fast navigation increments **generation counters** before each request. Late completions are **discarded** if their generation no longer matches.
 
-*Note:* In-flight tasks are not aborted; they still complete but are ignored. Acceptable for v2; optional `JoinHandle` cancel is a future improvement.
+*Note:* In-flight tasks are not aborted; they still complete but are ignored. Optional `JoinHandle` cancel is a future improvement.
 
 ### 6.4 Background file open
 
-Opening files with the OS default app uses **`open_in_background`** (`thread::spawn`) so macOS `open`, Linux `xdg-open`, and Windows `start` never block the TUI loop.
+Opening files with the OS default app uses a background spawn so macOS `open`, Linux `xdg-open`, and Windows `start` never block the TUI loop. Failures are currently silent.
 
 ### 6.5 Cache invalidation
 
 | Action | Cache behavior |
 |--------|----------------|
-| Manual refresh (`r`) | Invalidate entry for cwd, reload |
+| Manual refresh (`r`) | Clear cache, reload |
 | Sort / hidden toggle | Clear full cache |
-| Delete / rename | Clear cache, async refresh |
+| Rename (and delete) | Clear cache, async refresh |
 
 ---
 
@@ -194,22 +193,23 @@ Opening files with the OS default app uses **`open_in_background`** (`thread::sp
 
 ```text
 r_tvui/
-  Cargo.toml           workspace: r_tvui, crates/core, crates/filesystem
+  Cargo.toml           workspace: ".", crates/core
   src/                 application binary + library
   crates/
-    core/              rtvui-core — paths, formatters
-    filesystem/        directory listing, cache, errors
+    core/              rtvui-core — listing, artifacts, errors
   docs/
     design.md          this file
     tutorial.md        rebuild guide
+    review.md          implementation audit
+    test.md            test / coverage conventions
   scripts/
     install.sh         curl-install for macOS/Linux
   .github/workflows/
-    ci.yml             fmt, clippy, test
-    release.yml        matrix build on v* tags
+    .github.yml        intended CI (must be renamed to ci.yml — currently hidden)
+    .release.yml       intended release (must be renamed to release.yml)
 ```
 
-**Stack:** Rust 2024 edition, ratatui 0.30, tokio, clap, serde/toml, trash, arboard (clipboard).
+**Stack today:** Rust 2024 edition, ratatui 0.30, tokio, clap, serde/toml, dirs, trash, arboard.
 
 ---
 
@@ -217,26 +217,20 @@ r_tvui/
 
 | Domain | Responsibility | Primary location |
 |--------|----------------|------------------|
-| **App state** | cwd, selection, filter, sort, modes, bookmarks, history | `models/app.rs` |
-| **Directory cache** | Per-path listing, TTL + LRU, invalidation | `filesystem::DirectoriesCache` |
-| **Listing tasks** | Browser vs side-pane requests, events | `utils/listing.rs` |
-| **Navigation** | Parent, enter dir, go to path, home, history | `utils/navigation.rs` |
-| **Side pane** | Hidden / folder listing / file preview | `models/app.rs` (`SidePane`) |
-| **File ops** | Delete (confirm, trash), rename | `utils/ops.rs` |
-| **Config** | Theme, sort, trash, bookmarks, preview_on_move | `utils/config.rs` |
-| **Themes** | gotyme, midnight, forest, solar, mono | `theme.rs` |
+| **App state** | cwd, selection, filter, sort, modes | `models/app.rs` |
+| **Directory cache** | Per-path listing (in-app map) | `models/app.rs` |
+| **Listing tasks** | Browser vs side-pane requests, events | `models/client.rs` |
+| **Navigation** | Parent, enter dir, scroll, home→root | `events/utils.rs` |
+| **Side pane** | Folder listing / file preview | `models/previewer.rs` + `ui/` |
+| **File ops** | Rename, delete (confirm + optional trash), copy path | `models/app.rs` |
+| **Config** | Theme, sort, trash flag, bookmarks, preview | `config/` |
+| **Themes** | Forest, Midnight, Solar, Mono | `config/app.rs` |
 
-### 8.1 Filesystem crate
+### 8.1 Core crate
 
-- **`list_directories`** / **`list_directories_async`** with **`DirectoryListOptions`** (hidden, sort).
-- **Cap:** 50,000 entries per directory; **`partial`** flag when truncated.
-- **`AbsolutePath`** — canonical paths for operations.
-- Errors as **`FileSystemError`** (not found, permission denied, I/O).
-
-### 8.2 Core crate
-
-- **`File`**, **`FileType`**, path helpers, size/mtime formatters.
-- **`ids`** — newtypes (`TabId`, etc.) reserved for future tabs/git UI.
+- **`get_artifact_entries`** / async variant with **`ArtifactOptions`** (hidden, sort).
+- **Cap:** 50,000 entries per directory; **`partial`** flag when truncated (UI does not surface it yet).
+- Errors as **`RTVUIError` / `FileSystemErrors`**.
 
 ---
 
@@ -245,7 +239,7 @@ r_tvui/
 ### 9.1 Layout (default)
 
 ```text
-┌─ path: ~/proj/src                    [filter] ─────────────┐
+┌─ path: ~/proj/src                                          ┐
 ├──────────────────────────────┬─────────────────────────────┤
 │  NAME          SIZE    MODIFIED │  SIDE PANE                 │
 │  > src/        -       ...     │  (folder listing or        │
@@ -255,52 +249,70 @@ r_tvui/
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 9.2 Keybindings (shipping)
+### 9.2 Keybindings (shipping on master)
 
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Move selection down / up |
-| `l` / Enter | Enter directory or open file with default app |
-| `h` | Parent directory |
-| `g` | Go to path (prompt) |
-| `G` | Home directory |
-| `u` / `i` | History back / forward |
-| `/` | Filter listing by name |
-| `s` | Cycle sort (name / size / modified) |
-| `.` | Toggle hidden files |
-| `p` / `P` | Refresh preview / toggle preview-on-move |
-| `y` | Copy path to clipboard |
-| `b` | Bookmark folder · `1`–`9` jump to bookmark |
-| `F2` | Rename |
-| `d` | Delete (confirm; trash if enabled) |
-| `r` | Refresh listing (invalidates cache for cwd) |
-| `t` | Cycle theme (saved to config) |
-| `?` | Help overlay |
-| `q` / `Esc` | Quit (`Esc` clears filter first) |
+| Key | Action | Status |
+|-----|--------|--------|
+| `w` / `↑` | Move selection up | Shipping |
+| `s` / `↓` | Move selection down | Shipping |
+| `a` / `←` | Parent directory | Shipping |
+| `d` / `→` | Enter selected **directory** | Shipping |
+| `Enter` | Open file with system app, or enter directory | Shipping |
+| `h` / `Home` | Walk to filesystem root (`/`) | Shipping |
+| `G` | Jump to `$HOME` | Shipping |
+| `/` | Filter mode (live substring filter) | Shipping |
+| `o` | Cycle sort (name / size / modified) | Shipping |
+| `.` | Toggle hidden files | Shipping |
+| `t` | Cycle theme (saved to config) | Shipping |
+| `P` | Cycle preview (`OnMove` / `Always` / `Never`) | Shipping |
+| `r` | Refresh listing (clears cache) | Shipping |
+| `x` / `Delete` | Delete selected entry (confirm; trash if `enable_trash`) | Shipping |
+| `y` | Copy selected path to clipboard | Shipping |
+| `b` | Bookmark current directory (slots 1–9) | Shipping |
+| `1`–`9` | Jump to bookmark slot | Shipping |
+| `u` / `i` | History back / forward | Shipping |
+| `F2` | Rename | Shipping |
+| `g` | Go to path (type path, Enter jumps; `~` ok) | Shipping |
+| `?` | Help overlay | Shipping |
+| `q` / `Esc` | Quit in normal mode; **Esc cancels** transient modes | Shipping |
 
-### 9.3 Modes
+### 9.3 Planned bindings (not shipping)
 
-- **Normal** — navigation and commands.
-- **Filter** — `/` then type; `Esc` clears.
-- **GoToPath** — `g` then path; Enter confirms.
-- **ConfirmDelete** — `d` then `y`/`n`.
+| Key | Planned action |
+|-----|----------------|
+| `j` / `k` / `l` | Vim-style nav (optional alias) |
 
-### 9.4 File operations
+### 9.4 Modes
 
-- **Delete:** confirm overlay; **`use_trash`** in config uses OS trash when available.
-- **Rename:** `F2`, inline buffer, validate before apply.
-- **Open file:** system handler (silent no-op if no associated app).
+| Mode | Enter | Esc | Notes |
+|------|-------|-----|-------|
+| **Active** (normal) | — | Quit | Also `q` quits |
+| **Filter** | `/` | Clear + Active | Typed chars narrow list (`q` is literal) |
+| **Rename** | `F2` | Active | Enter commits |
+| **GoTo** | `g` | Clear + Active | Type path; Enter jumps (`q` is literal) |
+| **Help** | `?` | Active | Overlay; `q` also closes |
+| **Confirm** | `x` / `Delete` | Active | `y` deletes; `n`/`q` cancel |
+
+### 9.5 File operations
+
+- **Rename:** `F2`, inline buffer, validate before apply — **shipping**.
+- **Delete:** `x`/`Delete` → confirm; `y` applies. If `enable_trash` → OS trash via `trash` crate; else permanent `remove_file` / `remove_dir_all`.
+- **Copy path:** `y` in normal mode copies the selected absolute path via `arboard` (status reports success or failure).
+- **Bookmarks:** `b` adds cwd (cap 9, persisted); `1`–`9` jumps. Missing paths report in the status bar.
+- **Open file:** system handler (silent no-op if spawn fails).
 
 ---
 
 ## 10. Preview & side pane
 
-### 10.1 Pipeline (v2)
+### 10.1 Pipeline (shipping)
 
-1. User selects entry → optional **preview on move** (`preview_on_move` config).
-2. **Directory:** side pane shows folder listing (async, cached).
-3. **File:** **`previewer::preview_path`** reads text prefix into side pane.
-4. New selection bumps **side_pane_gen**; stale preview/folder results dropped.
+1. User changes selection → request side pane (unless `preview == Never`).
+2. **Directory:** side pane shows folder listing (async).
+3. **File:** text prefix (~64 KiB) into side pane.
+4. New selection bumps **previewer generation**; stale results dropped.
+
+`OnMove` and `Always` both refresh the side pane on selection change and after listings; `Never` disables it. `P` cycles the mode and persists to config.
 
 ### 10.2 Planned (M3+)
 
@@ -312,46 +324,53 @@ r_tvui/
 
 ## 11. Configuration
 
-- **Path:** `~/.config/rtvui/config.toml` (override: `RTVUI_CONFIG`).
+- **Path (actual):** `~/.r_tvui/.config.toml`
 - **Auto-created** on first run with defaults.
+- **No** `RTVUI_CONFIG` override yet (earlier docs mentioned XDG `~/.config/rtvui/`).
 
-Example:
+Example (shape matches serde types on master):
 
 ```toml
-theme = "forest"
-sort = "name"          # name | size | modified
-use_trash = true
-preview_on_move = true
-bookmarks = ["/Users/you/Projects", "/Users/you/Downloads"]
+theme = "Forest"   # Forest | Midnight | Solar | Mono
+
+[settings]
+sort = "Name"           # Name | Size | Modified
+enable_trash = true     # true → OS trash; false → permanent delete
+preview = "OnMove"      # OnMove | Always | Never
+show_hidden = false
+
+[cache]
+bookmarks = []          # up to 9 paths; `b` / `1`–`9` in the UI
 ```
 
-**Themes:** `gotyme`, `midnight`, `forest`, `solar`, `mono`.
+**Themes:** Forest, Midnight, Solar, Mono (no `gotyme`).
 
 ---
 
 ## 12. Quality attributes
 
-| Attribute | Target | v2 approach |
-|-----------|--------|-------------|
+| Attribute | Target | Approach on master |
+|-----------|--------|--------------------|
 | Cold start | Fast first frame | Single binary, minimal init |
 | Large directories | Responsive UI | Async list + 50k cap + cache |
-| Memory | Bounded | Cache LRU/TTL; drop on clear |
-| Accessibility | Readable | High-contrast `mono` theme |
+| Memory | Bounded | Cache cleared on refresh/sort/hidden |
+| Accessibility | Readable | High-contrast `Mono` theme |
 
 ---
 
 ## 13. Security
 
-- Operates only on paths the **user can read**; opens files only on **explicit** Enter/`l`.
+- Operates only on paths the **user can read**; opens files only on **explicit** Enter.
 - **No network service** — local filesystem only.
-- Path handling uses canonical absolute paths; future “jail” mode would restrict roots via config (planned in original spec, not enforced in v2).
-- Release binaries should be built from **tagged CI** sources.
+- Rename validates separators / `..` / collisions.
+- Path “jail” / root restriction — **not enforced**.
+- Release binaries should be built from **tagged CI** sources (CI workflow filenames currently prevent Actions from running — see §14).
 
 ---
 
 ## 14. Testing & CI
 
-### 14.1 Local
+### 14.1 Local (desired gate)
 
 ```bash
 cargo fmt --all -- --check
@@ -360,14 +379,17 @@ cargo test --workspace
 cargo build --release
 ```
 
-### 14.2 CI (`.github/workflows/ci.yml`)
+Makefile today: `make fmt` **mutates**; `make lint` does **not** pass `-D warnings`. Prefer the commands above for release checks. Coverage: see [test.md](./test.md).
 
-On push/PR to `main`/`master`: fmt, clippy `-D warnings`, workspace tests.
+### 14.2 CI
+
+Intended: on push/PR to `master` — fmt check, clippy `-D warnings`, workspace tests.  
+Workflows: `.github/workflows/ci.yml` and `release.yml`.
 
 ### 14.3 Tests in tree
 
-- Unit/integration tests under `src/tests/` (app state, listing, config).
-- Prefer `tempfile` fixtures for future filesystem integration tests.
+- Unit tests under `src/tests/` and `crates/core/src/tests/` (~97 cases when green).
+- Prefer `tempfile` fixtures for filesystem integration tests.
 
 ---
 
@@ -390,11 +412,11 @@ On push/PR to `main`/`master`: fmt, clippy `-D warnings`, workspace tests.
 
 ### 15.2 Maintainer release flow
 
-1. Bump `version` in root `Cargo.toml`.
-2. `cargo test --workspace` and `cargo clippy` green.
-3. Tag: `git tag v2.0.0 && git push origin v2.0.0`
-4. **Release workflow** builds matrix artifacts and publishes to GitHub Releases.
-5. Update release notes; optional: project website `RELEASE_VERSION`.
+1. Bump `version` in root `Cargo.toml` (must match the tag).
+2. `cargo test --workspace` and clippy `-D warnings` green.
+3. Tag a **new** semver — do **not** reuse existing `v2.0.0` / `v3.0.0` (those point at older trees). Prefer continuing from the `v1.x` line or a clear `0.x` until M2 is complete.
+4. **Release workflow** (once renamed) builds matrix artifacts → GitHub Releases.
+5. Update release notes / CHANGELOG.
 
 ### 15.3 Requirements for users
 
@@ -407,22 +429,21 @@ On push/PR to `main`/`master`: fmt, clippy `-D warnings`, workspace tests.
 
 ## 16. Known limitations & roadmap
 
-### 16.1 Current limitations (v2.0.0)
+### 16.1 Current limitations (0.2.0)
 
 1. No explicit task cancel — generation discard only.
 2. One Tokio runtime per app instance.
-3. No tabs, visual multi-select, or copy/move queue UI.
-4. Core ID/git types exist but UI does not use git column yet.
-5. Very large single directories still heavy at read time (capped, async avoids freeze).
+3. No tabs, visual multi-select, or copy/move queue.
+4. `OnMove` vs `Always` are close; only `Never` fully disables the pane.
+5. Very large single directories still heavy at read time (capped; UI notes truncation).
 
 ### 16.2 Recommended next steps
 
 | Priority | Task |
 |----------|------|
-| Medium | Abort in-flight listing on navigation (`JoinHandle`) |
-| Low | Integration tests for rename/delete with `tempfile` |
-| Low | Multi-tab support |
-| Low | Git status column (debounced) |
+| **Medium** | Abort in-flight listing (`JoinHandle`); richer Always vs OnMove |
+| **Low** | Multi-tab; git column (M3) |
+| **Release** | Tag `v0.2.0` after CI green on `ci.yml` |
 
 ---
 
@@ -433,6 +454,7 @@ On push/PR to `main`/`master`: fmt, clippy `-D warnings`, workspace tests.
 | Terminal preview fragmentation | Capability probe before image preview (M3) |
 | Feature creep vs Yazi | Phased roadmap; ship small binary |
 | Async race bugs | Generation tokens; tests for navigation |
+| Doc/tag overclaim | Keep this file aligned with Cargo version + [review.md](./review.md) |
 
 ---
 
@@ -443,10 +465,10 @@ On push/PR to `main`/`master`: fmt, clippy `-D warnings`, workspace tests.
 | **Browser** | Main file list for current `cwd` |
 | **Side pane** | Right column: folder contents or file preview |
 | **Generation** | Monotonic counter to ignore stale async results |
-| **ListingService** | Tokio + channel + cache coordinator |
+| **AsyncEventClient** | Tokio + channel coordinator for listings/previews |
 | **Spotter** | (Planned) Cheap metadata before full preview |
-| **Previewer** | (Planned) Renders preview content by file type |
+| **Previewer** | Side-pane content (text or folder listing) |
 
 ---
 
-*This document supersedes `DESIGN_SPEC.md`, `REVIEW.md`, `INSTALL.md`, `DISTRIBUTION.md`, and `planning/*`.*
+*This document supersedes `DESIGN_SPEC.md`, `INSTALL.md`, `DISTRIBUTION.md`, and `planning/*`. Implementation gaps live in [review.md](./review.md).*

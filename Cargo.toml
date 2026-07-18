@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "r_tvui"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
@@ -17,5 +17,9 @@ serde = { version = "1.0.228", features = ["derive"] }
 dirs = "6.0.0"
 toml = "1.1.2"
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "sync", "fs", "time"] }
-tempfile = "3.10.0"
 shellexpand = "3.1.2"
+trash = "5"
+arboard = "3.6.1"
+
+[dev-dependencies]
+tempfile = "3.10.0"

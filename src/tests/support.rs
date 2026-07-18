@@ -12,7 +12,9 @@ static HOME_LOCK: Mutex<()> = Mutex::new(());
 /// previous value. This keeps config-persistence tests from ever touching the
 /// developer's real `~/.r_tvui` directory.
 pub fn with_temp_home<T>(body: impl FnOnce(&Path) -> T) -> T {
-    let guard = HOME_LOCK.lock().unwrap_or_else(|poison| poison.into_inner());
+    let guard = HOME_LOCK
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let dir = tempfile::tempdir().unwrap();
     let previous = std::env::var_os("HOME");
 

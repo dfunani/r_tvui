@@ -38,7 +38,10 @@ mod test_app {
     #[test]
     fn test_app_new() {
         let app = App::new(PathBuf::from("."), AppConfig::default()).unwrap();
-        assert_eq!(app.current_working_directory, PathBuf::from("."));
+        assert_eq!(
+            app.current_working_directory,
+            PathBuf::from(".").canonicalize().unwrap()
+        );
         assert!(!app.artifacts.is_empty());
         assert_eq!(app.scroll_state.selected(), Some(0));
         assert_eq!(app.status_message, "");
@@ -83,7 +86,10 @@ mod test_app {
         app.reload().unwrap();
         assert_eq!(app.artifacts.len(), 1);
         assert_eq!(app.artifacts[0].name, "test.txt");
-        assert_eq!(app.artifacts[0].path, dir.path().join("test.txt"));
+        assert_eq!(
+            app.artifacts[0].path,
+            dir.path().join("test.txt").canonicalize().unwrap()
+        );
         assert_eq!(app.artifacts[0].artifact_type, ArtifactType::File);
         assert_eq!(app.artifacts[0].size, 4);
     }
@@ -223,6 +229,7 @@ mod test_app {
             generation: app.generation,
             artifacts: listing,
             path: target.clone(),
+            error: None,
         });
         assert_eq!(app.current_working_directory, target);
         assert_eq!(app.artifacts.len(), 1);
@@ -242,6 +249,7 @@ mod test_app {
                 partial: false,
             },
             path: PathBuf::from("/tmp/ghost"),
+            error: None,
         });
         assert_eq!(app.artifacts, before);
     }
@@ -286,6 +294,202 @@ mod test_app {
         app.reload().unwrap();
         app.scroll_state.select(None);
         assert_eq!(app.begin_rename(), AppState::Active);
+    }
+
+    #[test]
+    fn begin_goto_clears_buffer() {
+        let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.goto_input = "stale".to_string();
+        assert_eq!(app.begin_goto(), AppState::GoTo);
+        assert!(app.goto_input.is_empty());
+    }
+
+    #[test]
+    fn begin_delete_requires_selection() {
+        let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.reload().unwrap();
+        assert_eq!(app.begin_delete(), AppState::Confirm);
+        app.scroll_state.select(None);
+        assert_eq!(app.begin_delete(), AppState::Active);
+    }
+
+    #[test]
+    fn commit_delete_removes_file_permanently() {
+        let (dir, mut app) = app_with_files(&[("gone.txt", "a")]);
+        app.reload().unwrap();
+        app.config.settings.enable_trash = false;
+        app.commit_delete().unwrap();
+        assert!(!dir.path().join("gone.txt").exists());
+        assert!(app.status_message.contains("Deleted"));
+    }
+
+    #[test]
+    fn commit_delete_removes_directory_permanently() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("subdir")).unwrap();
+        std::fs::write(dir.path().join("subdir").join("inner.txt"), "x").unwrap();
+        let mut app = App::new(dir.path().to_path_buf(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+        app.config.settings.enable_trash = false;
+        let index = app
+            .entries_filtered
+            .iter()
+            .position(|a| a.name == "subdir")
+            .unwrap();
+        app.scroll_state.select(Some(index));
+        app.commit_delete().unwrap();
+        assert!(!dir.path().join("subdir").exists());
+        assert!(app.status_message.contains("Deleted"));
+    }
+
+    #[test]
+    fn copy_selected_path_reports_status() {
+        let (dir, mut app) = app_with_files(&[("note.txt", "hi")]);
+        app.reload().unwrap();
+        let expected = dir
+            .path()
+            .join("note.txt")
+            .canonicalize()
+            .unwrap_or_else(|_| dir.path().join("note.txt"));
+        app.copy_selected_path();
+        // Clipboard may be unavailable in headless CI; either outcome is fine so
+        // long as we surface a status that mentions the path or a clear failure.
+        assert!(
+            app.status_message.contains("Copied") || app.status_message.starts_with("Copy failed"),
+            "unexpected status: {}",
+            app.status_message
+        );
+        if app.status_message.starts_with("Copied") {
+            assert!(app.status_message.contains(&expected.display().to_string()));
+        }
+    }
+
+    #[test]
+    fn copy_selected_path_without_selection() {
+        let (_dir, mut app) = app_with_files(&[("note.txt", "hi")]);
+        app.reload().unwrap();
+        app.scroll_state.select(None);
+        app.copy_selected_path();
+        assert!(app.status_message.contains("nothing selected"));
+    }
+
+    #[test]
+    fn bookmark_cwd_and_jump() {
+        use crate::tests::support::with_temp_home;
+
+        with_temp_home(|_| {
+            let first = tempfile::tempdir().unwrap();
+            let second = tempfile::tempdir().unwrap();
+            let mut app = App::new(first.path().to_path_buf(), AppConfig::default()).unwrap();
+            app.reload().unwrap();
+
+            app.bookmark_cwd();
+            assert_eq!(app.config.cache.bookmarks.len(), 1);
+            assert!(app.status_message.contains("Bookmarked as 1"));
+
+            app.bookmark_cwd();
+            assert_eq!(app.config.cache.bookmarks.len(), 1);
+            assert!(app.status_message.contains("Already bookmarked as 1"));
+
+            app.current_working_directory = second.path().to_path_buf();
+            app.bookmark_cwd();
+            assert_eq!(app.config.cache.bookmarks.len(), 2);
+
+            app.jump_to_bookmark(1).unwrap();
+            assert_eq!(
+                app.current_working_directory,
+                first.path().canonicalize().unwrap()
+            );
+            assert!(app.status_message.contains("Jumped to bookmark 1"));
+
+            app.jump_to_bookmark(9).unwrap();
+            assert!(app.status_message.contains("No bookmark in slot 9"));
+        });
+    }
+
+    #[test]
+    fn jump_to_bookmark_reports_missing_path() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.config.cache.bookmarks = vec!["/no/such/rtvui/bookmark".to_string()];
+        app.jump_to_bookmark(1).unwrap();
+        assert!(app.status_message.contains("missing"));
+    }
+
+    #[test]
+    fn history_back_and_forward() {
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        let first_path = first.path().canonicalize().unwrap();
+        let second_path = second.path().canonicalize().unwrap();
+        let mut app = App::new(first_path.clone(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+
+        app.current_working_directory = second_path.clone();
+        app.record_history();
+        assert_eq!(app.history.len(), 2);
+
+        app.history_back().unwrap();
+        assert_eq!(app.current_working_directory, first_path);
+
+        app.history_forward().unwrap();
+        assert_eq!(app.current_working_directory, second_path);
+
+        app.history_forward().unwrap();
+        assert!(app.status_message.contains("newest"));
+    }
+
+    #[test]
+    fn cycle_preview_rotates_and_never_clears() {
+        use crate::tests::support::with_temp_home;
+
+        with_temp_home(|_| {
+            let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+            assert_eq!(app.config.settings.preview, Preview::OnMove);
+            app.cycle_preview();
+            assert_eq!(app.config.settings.preview, Preview::Always);
+            app.cycle_preview();
+            assert_eq!(app.config.settings.preview, Preview::Never);
+            app.request_previewer();
+            assert!(matches!(app.previewer, Previewer::Empty));
+            app.cycle_preview();
+            assert_eq!(app.config.settings.preview, Preview::OnMove);
+        });
+    }
+
+    #[test]
+    fn jump_home_goes_to_user_home() {
+        use crate::tests::support::with_temp_home;
+
+        with_temp_home(|home| {
+            let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+            app.jump_home().unwrap();
+            assert_eq!(app.current_working_directory, home.canonicalize().unwrap());
+        });
+    }
+
+    #[test]
+    fn commit_goto_jumps_to_directory() {
+        let target = tempfile::tempdir().unwrap();
+        let (_dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.goto_input = target.path().display().to_string();
+        assert_eq!(app.commit_goto().unwrap(), AppState::Active);
+        assert_eq!(
+            app.current_working_directory,
+            target.path().canonicalize().unwrap()
+        );
+        assert!(app.goto_input.is_empty());
+    }
+
+    #[test]
+    fn commit_goto_rejects_missing_and_file_paths() {
+        let (dir, mut app) = app_with_files(&[("file.txt", "a")]);
+        app.goto_input = "/no/such/rtvui/dir".to_string();
+        assert_eq!(app.commit_goto().unwrap(), AppState::GoTo);
+        assert!(app.status_message.contains("not found"));
+
+        app.goto_input = dir.path().join("file.txt").display().to_string();
+        assert_eq!(app.commit_goto().unwrap(), AppState::GoTo);
+        assert!(app.status_message.contains("not a directory"));
     }
 
     #[test]
@@ -366,7 +570,10 @@ mod test_app {
         let cwd = app.current_working_directory.clone();
         app.cache.insert(
             cwd,
-            ArtifactListResult { artifacts: vec![artifact("cached.txt")], partial: false },
+            ArtifactListResult {
+                artifacts: vec![artifact("cached.txt")],
+                partial: false,
+            },
         );
         app.async_reload().unwrap();
         assert_eq!(app.artifacts.len(), 1);

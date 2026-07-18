@@ -45,33 +45,34 @@ pub fn handle_key_event_rename_input(app: &mut App, event_key: KeyEvent) -> Resu
     }
 }
 
-pub fn handle_key_event_go_to_mode(_: &mut App, event_key: KeyEvent) -> Result<AppState> {
+pub fn handle_key_event_go_to_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => {
-            return Ok(AppState::Quit);
+        KeyCode::Char(c) => {
+            app.goto_input.push(c);
+            Ok(AppState::GoTo)
         }
-        _ => {}
+        KeyCode::Backspace => {
+            app.goto_input.pop();
+            Ok(AppState::GoTo)
+        }
+        KeyCode::Enter => app.commit_goto(),
+        _ => Ok(AppState::GoTo),
     }
-    Ok(AppState::GoTo)
 }
 
-pub fn handle_key_event_confirm_mode(_: &mut App, event_key: KeyEvent) -> Result<AppState> {
+pub fn handle_key_event_confirm_mode(app: &mut App, event_key: KeyEvent) -> Result<AppState> {
     match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => {
-            return Ok(AppState::Active);
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            app.commit_delete()?;
+            Ok(AppState::Active)
         }
-        _ => {}
+        _ => Ok(AppState::Confirm),
     }
-    Ok(AppState::Confirm)
 }
 
 pub fn handle_key_event_help_mode(_: &mut App, event_key: KeyEvent) -> Result<AppState> {
-    match event_key.code {
-        KeyCode::Esc | KeyCode::Char('q') => {
-            return Ok(AppState::Active);
-        }
-        _ => {}
-    }
+    // Esc/`q` are handled by the outer dispatcher (cancel → Active).
+    let _ = event_key;
     Ok(AppState::Help)
 }
 

@@ -95,6 +95,33 @@ mod test_events {
         assert!(app.current_working_directory.components().count() <= 1);
     }
 
+    #[test]
+    fn capital_g_jumps_to_home() {
+        with_temp_home(|home| {
+            let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+            handle_key_events_normal_mode(&mut app, ch('G')).unwrap();
+            assert_eq!(app.current_working_directory, home.canonicalize().unwrap());
+        });
+    }
+
+    #[test]
+    fn history_keys_navigate() {
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        let first_path = first.path().canonicalize().unwrap();
+        let second_path = second.path().canonicalize().unwrap();
+        let mut app = App::new(first_path.clone(), AppConfig::default()).unwrap();
+        app.reload().unwrap();
+        app.current_working_directory = second_path.clone();
+        app.record_history();
+
+        handle_key_events_normal_mode(&mut app, ch('u')).unwrap();
+        assert_eq!(app.current_working_directory, first_path);
+
+        handle_key_events_normal_mode(&mut app, ch('i')).unwrap();
+        assert_eq!(app.current_working_directory, second_path);
+    }
+
     // ---- normal-mode transitions ------------------------------------------
 
     #[test]
@@ -207,15 +234,20 @@ mod test_events {
 
         app.state = AppState::GoTo;
         dispatch_key(&mut app, code(KeyCode::Esc)).unwrap();
-        assert_eq!(app.state, AppState::Quit);
+        assert_eq!(app.state, AppState::Active);
 
         app.state = AppState::Confirm;
         dispatch_key(&mut app, code(KeyCode::Esc)).unwrap();
-        assert_eq!(app.state, AppState::Quit);
+        assert_eq!(app.state, AppState::Active);
 
         app.state = AppState::Help;
         dispatch_key(&mut app, code(KeyCode::Esc)).unwrap();
-        assert_eq!(app.state, AppState::Quit);
+        assert_eq!(app.state, AppState::Active);
+
+        // `q` cancels Help (not GoTo — GoTo treats `q` as path input).
+        app.state = AppState::Help;
+        dispatch_key(&mut app, ch('q')).unwrap();
+        assert_eq!(app.state, AppState::Active);
 
         // The Quit arm is a no-op terminal state.
         app.state = AppState::Quit;
@@ -231,17 +263,30 @@ mod test_events {
 
         assert_eq!(
             handle_key_events_go_to_mode(&mut app, code(KeyCode::Esc)).unwrap(),
-            AppState::Quit
+            AppState::Active
         );
-        assert_eq!(handle_key_events_confirm_mode(&mut app, ch('q')).unwrap(), AppState::Quit);
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('q')).unwrap(),
+            AppState::Active
+        );
         assert_eq!(
             handle_key_events_help_mode(&mut app, code(KeyCode::Esc)).unwrap(),
-            AppState::Quit
+            AppState::Active
         );
 
-        assert_eq!(handle_key_events_go_to_mode(&mut app, ch('x')).unwrap(), AppState::GoTo);
-        assert_eq!(handle_key_events_confirm_mode(&mut app, ch('x')).unwrap(), AppState::Confirm);
-        assert_eq!(handle_key_events_help_mode(&mut app, ch('x')).unwrap(), AppState::Help);
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, ch('x')).unwrap(),
+            AppState::GoTo
+        );
+        assert_eq!(app.goto_input, "x");
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('x')).unwrap(),
+            AppState::Confirm
+        );
+        assert_eq!(
+            handle_key_events_help_mode(&mut app, ch('x')).unwrap(),
+            AppState::Help
+        );
     }
 
     #[test]
@@ -249,22 +294,156 @@ mod test_events {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
 
         assert_eq!(
-            handle_key_event_go_to_mode(&mut app, code(KeyCode::Esc)).unwrap(),
-            AppState::Quit
+            handle_key_event_go_to_mode(&mut app, ch('q')).unwrap(),
+            AppState::GoTo
         );
-        assert_eq!(handle_key_event_go_to_mode(&mut app, ch('x')).unwrap(), AppState::GoTo);
+        assert_eq!(app.goto_input, "q");
+        assert_eq!(
+            handle_key_event_go_to_mode(&mut app, ch('x')).unwrap(),
+            AppState::GoTo
+        );
+        assert_eq!(app.goto_input, "qx");
 
         assert_eq!(
-            handle_key_event_confirm_mode(&mut app, ch('q')).unwrap(),
-            AppState::Active
+            handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(),
+            AppState::Confirm
         );
-        assert_eq!(handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(), AppState::Confirm);
+        assert_eq!(
+            handle_key_event_confirm_mode(&mut app, ch('x')).unwrap(),
+            AppState::Confirm
+        );
 
         assert_eq!(
             handle_key_event_help_mode(&mut app, code(KeyCode::Esc)).unwrap(),
+            AppState::Help
+        );
+        assert_eq!(
+            handle_key_event_help_mode(&mut app, ch('x')).unwrap(),
+            AppState::Help
+        );
+    }
+
+    #[test]
+    fn goto_mode_types_jumps_and_rejects() {
+        let target = tempfile::tempdir().unwrap();
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('g')).unwrap(),
+            AppState::GoTo
+        );
+        assert!(app.goto_input.is_empty());
+
+        for c in target.path().display().to_string().chars() {
+            assert_eq!(
+                handle_key_events_go_to_mode(&mut app, ch(c)).unwrap(),
+                AppState::GoTo
+            );
+        }
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, code(KeyCode::Enter)).unwrap(),
             AppState::Active
         );
-        assert_eq!(handle_key_event_help_mode(&mut app, ch('x')).unwrap(), AppState::Help);
+        assert_eq!(
+            app.current_working_directory,
+            target.path().canonicalize().unwrap()
+        );
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('g')).unwrap(),
+            AppState::GoTo
+        );
+        for c in "/no/such/rtvui/path".chars() {
+            handle_key_events_go_to_mode(&mut app, ch(c)).unwrap();
+        }
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, code(KeyCode::Enter)).unwrap(),
+            AppState::GoTo
+        );
+        assert!(app.status_message.contains("not found"));
+
+        assert_eq!(
+            handle_key_events_go_to_mode(&mut app, code(KeyCode::Esc)).unwrap(),
+            AppState::Active
+        );
+        assert!(app.goto_input.is_empty());
+    }
+
+    #[test]
+    fn confirm_delete_mode_yes_and_cancel() {
+        let (dir, mut app) = app_with_files(&[("doomed.txt", "a"), ("keep.txt", "b")]);
+        app.config.settings.enable_trash = false;
+
+        let index = app
+            .entries_filtered
+            .iter()
+            .position(|a| a.name == "doomed.txt")
+            .unwrap();
+        app.scroll_state.select(Some(index));
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('x')).unwrap(),
+            AppState::Confirm
+        );
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('n')).unwrap(),
+            AppState::Active
+        );
+        assert!(dir.path().join("doomed.txt").exists());
+
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, code(KeyCode::Delete)).unwrap(),
+            AppState::Confirm
+        );
+        assert_eq!(
+            handle_key_events_confirm_mode(&mut app, ch('y')).unwrap(),
+            AppState::Active
+        );
+        assert!(!dir.path().join("doomed.txt").exists());
+        assert!(dir.path().join("keep.txt").exists());
+        assert!(app.status_message.contains("Deleted"));
+    }
+
+    #[test]
+    fn copy_path_key_sets_status() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        assert_eq!(
+            handle_key_events_normal_mode(&mut app, ch('y')).unwrap(),
+            AppState::Active
+        );
+        assert!(
+            app.status_message.contains("Copied") || app.status_message.starts_with("Copy failed"),
+            "unexpected status: {}",
+            app.status_message
+        );
+    }
+
+    #[test]
+    fn bookmark_keys_save_and_jump() {
+        with_temp_home(|_| {
+            let first = tempfile::tempdir().unwrap();
+            let second = tempfile::tempdir().unwrap();
+            let mut app = App::new(first.path().to_path_buf(), AppConfig::default()).unwrap();
+            app.reload().unwrap();
+
+            assert_eq!(
+                handle_key_events_normal_mode(&mut app, ch('b')).unwrap(),
+                AppState::Active
+            );
+            assert_eq!(app.config.cache.bookmarks.len(), 1);
+
+            app.current_working_directory = second.path().to_path_buf();
+            handle_key_events_normal_mode(&mut app, ch('b')).unwrap();
+
+            assert_eq!(
+                handle_key_events_normal_mode(&mut app, ch('1')).unwrap(),
+                AppState::Active
+            );
+            assert_eq!(
+                app.current_working_directory,
+                first.path().canonicalize().unwrap()
+            );
+        });
     }
 
     // ---- option keys (persist to a sandboxed HOME) -------------------------

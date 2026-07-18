@@ -114,6 +114,37 @@ mod test_ui {
     }
 
     #[test]
+    fn renders_goto_prompt() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.state = AppState::GoTo;
+        app.goto_input = "/tmp".to_string();
+        let text = draw(&mut app);
+        assert!(text.contains("go to"));
+        assert!(text.contains("/tmp"));
+    }
+
+    #[test]
+    fn renders_help_overlay() {
+        let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
+        app.state = AppState::Help;
+        let text = draw(&mut app);
+        assert!(text.contains("Help"));
+        assert!(text.contains("Navigation"));
+        assert!(text.contains("Options"));
+    }
+
+    #[test]
+    fn renders_confirm_delete_prompt() {
+        let (_dir, mut app) = app_with_files(&[("doomed.txt", "a")]);
+        app.state = AppState::Confirm;
+        app.config.settings.enable_trash = true;
+        let text = draw(&mut app);
+        assert!(text.contains("delete"));
+        assert!(text.contains("doomed.txt"));
+        assert!(text.contains("trash"));
+    }
+
+    #[test]
     fn renders_status_message_in_bar() {
         let (_dir, mut app) = app_with_files(&[("a.txt", "a")]);
         app.status_message = "Renamed to b.txt".to_string();
