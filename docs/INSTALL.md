@@ -1,5 +1,7 @@
 # Install R-TVUI
 
+**Public download page:** [r-tvui-web.vercel.app/download](https://r-tvui-web.vercel.app/download) — platform picker, one-liner, and versioned asset links for **v3.1.0**.
+
 ## One-line (macOS / Linux)
 
 ```bash
@@ -18,7 +20,7 @@ Ensure `~/.local/bin` is on your `PATH`.
 
 ## Windows / all platforms
 
-Download the matching asset from [GitHub Releases](https://github.com/dfunani/r_tvui/releases):
+Download from the [website](https://r-tvui-web.vercel.app/download) or [GitHub Releases](https://github.com/dfunani/r_tvui/releases):
 
 | Platform | Asset |
 |----------|--------|

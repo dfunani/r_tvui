@@ -2,17 +2,21 @@
 
 Keyboard-driven TUI file explorer in Rust. Browse with WASD or vim keys, preview before you open, mark and move files across a dual-cwd split — all in one binary.
 
-**Version:** 3.1.0 · **Release tag:** [`v3.1.0`](https://github.com/dfunani/r_tvui/releases)
+**Version:** 3.1.0 · [**Download**](https://r-tvui-web.vercel.app/download) · [Website](https://r-tvui-web.vercel.app) · [Releases](https://github.com/dfunani/r_tvui/releases/tag/v3.1.0)
 
 ## Install
 
-**macOS / Linux** (to `~/.local/bin`):
+**Easiest:** pick your platform on the [**download page**](https://r-tvui-web.vercel.app/download) — one-liner, direct tarballs/zip, and per-OS steps (macOS, Linux x86_64/ARM64, Windows).
+
+**macOS / Linux** (script → `~/.local/bin`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/master/scripts/install.sh | bash
 ```
 
-**All platforms** — [GitHub Releases](https://github.com/dfunani/r_tvui/releases) or [docs/INSTALL.md](docs/INSTALL.md).
+Pin a version: `RTVUI_VERSION=3.1.0 curl -fsSL https://raw.githubusercontent.com/dfunani/r_tvui/master/scripts/install.sh | bash`
+
+**All platforms** — [Download](https://r-tvui-web.vercel.app/download) · [GitHub Releases](https://github.com/dfunani/r_tvui/releases) · [docs/INSTALL.md](docs/INSTALL.md)
 
 | Platform | Asset |
 |----------|--------|
@@ -134,12 +138,14 @@ cargo test --workspace
 
 | Doc | Role |
 |-----|------|
+| [**Download (web)**](https://r-tvui-web.vercel.app/download) | Install scripts + platform binaries |
+| [Website](https://r-tvui-web.vercel.app) | Docs, usage, project overview |
 | [design.md](docs/design.md) | **Closed** product design checklist (3.1.0) |
 | [review.md](docs/review.md) | **Closed** implementation audit checklist |
-| [INSTALL.md](docs/INSTALL.md) | Install details |
+| [INSTALL.md](docs/INSTALL.md) | Install details (repo) |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
 | [tutorial.md](docs/tutorial.md) | Rebuild-from-scratch curriculum |
-| [Website](https://github.com/dfunani/r_tvui_web) | Project site |
+| [Source (web repo)](https://github.com/dfunani/r_tvui_web) | Next.js site for r-tvui-web.vercel.app |
 
 ## License
 
