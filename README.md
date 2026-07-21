@@ -121,6 +121,8 @@ Theme, sort, hidden, trash, preview, and bookmarks persist from the UI.
 
 ## Development
 
+Contributors: start with [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/design.md](docs/design.md).
+
 ```text
 r_tvui/          # TUI binary (src/)
 crates/core/     # Listing + Artifact types
@@ -134,18 +136,19 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-## Docs
+## Documentation
 
-| Doc | Role |
-|-----|------|
-| [**Download (web)**](https://r-tvui-web.vercel.app/download) | Install scripts + platform binaries |
-| [Website](https://r-tvui-web.vercel.app) | Docs, usage, project overview |
-| [design.md](docs/design.md) | **Closed** product design checklist (3.1.0) |
-| [review.md](docs/review.md) | **Closed** implementation audit checklist |
-| [INSTALL.md](docs/INSTALL.md) | Install details (repo) |
+| Doc | Audience |
+|-----|----------|
+| [**Download (web)**](https://r-tvui-web.vercel.app/download) | Install binaries |
+| [Website](https://r-tvui-web.vercel.app) | Usage and overview |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to develop and open PRs |
+| [docs/design.md](docs/design.md) | Architecture and runtime model |
+| [docs/test.md](docs/test.md) | Testing conventions |
+| [docs/INSTALL.md](docs/INSTALL.md) | Install details |
+| [docs/tutorial.md](docs/tutorial.md) | Rebuild-from-scratch guide |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
-| [tutorial.md](docs/tutorial.md) | Rebuild-from-scratch curriculum |
-| [Source (web repo)](https://github.com/dfunani/r_tvui_web) | Next.js site for r-tvui-web.vercel.app |
+| [docs/README.md](docs/README.md) | Full doc index |
 
 ## License
 
